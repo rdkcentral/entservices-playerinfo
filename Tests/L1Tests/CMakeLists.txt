@@ -102,7 +102,7 @@ macro(add_plugin_test plugin_name test_files)
 endmacro()
 
 # PLUGIN_PLAYERINFO
-set (PLAYERINFO_INC ${CMAKE_SOURCE_DIR}/../entservices-mediaanddrm/PlayerInfo ${CMAKE_SOURCE_DIR}/../entservices-mediaanddrm/helpers)
+set (PLAYERINFO_INC ${CMAKE_SOURCE_DIR}/../../plugin ${CMAKE_SOURCE_DIR}/../entservices-playerinfo/helpers)
 add_plugin_test_ex(PLUGIN_PLAYERINFO tests/test_PlayerInfo.cpp "${PLAYERINFO_INC}" "${NAMESPACE}PlayerInfo")
 
 add_library(${MODULE_NAME} SHARED ${TEST_SRC})
