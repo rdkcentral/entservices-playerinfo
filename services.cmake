@@ -32,8 +32,6 @@ add_definitions (-DUSE_IARMBUS)
 add_definitions (-DUSE_TR_69)
 
 add_definitions (-DHAS_API_SYSTEM)
-add_definitions (-DHAS_API_POWERSTATE)
-add_definitions(-DRDK_LOG_MILESTONE)
 
 add_definitions (-DUSE_DS)
 
@@ -62,8 +60,6 @@ if (BUILD_ENABLE_TELEMETRY_LOGGING)
     message("Building with telemetry logging")
     add_definitions (-DENABLE_TELEMETRY_LOGGING)
 endif()
-
-add_definitions (-DENABLE_DEEP_SLEEP)
 
 # only on LLama
 if(BUILD_ENABLE_APP_CONTROL_AUDIOPORT_INIT)
