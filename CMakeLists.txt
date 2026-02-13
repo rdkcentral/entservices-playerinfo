@@ -48,40 +48,8 @@ if(RDK_SERVICES_L1_TEST)
     add_subdirectory(Tests/L1Tests)
 endif()
 
-if(PLUGIN_SCREENCAPTURE)
-    add_subdirectory(ScreenCapture)
-endif()
-
-if(PLUGIN_OPENCDMI)
-    add_subdirectory(OpenCDMi)
-endif()
-
 if(PLUGIN_PLAYERINFO)
-    add_subdirectory(PlayerInfo)
-endif()
-
-if(PLUGIN_TEXTTOSPEECH)
-    add_subdirectory(TextToSpeech)
-endif()
-
-if(PLUGIN_SYSTEMAUDIOPLAYER)
-    add_subdirectory(SystemAudioPlayer)
-endif()
-
-if(PLUGIN_DTV)
-    add_subdirectory(DTV)
-endif()
-
-if(PLUGIN_LINEARPLAYBACKCONTROL)
-    add_subdirectory(LinearPlaybackControl)
-endif()
-
-if(PLUGIN_CRYPTOGRAPHY)
-    add_subdirectory(Cryptography)
-endif()
-
-if(PLUGIN_UNIFIEDCASMANAGEMENT)
-    add_subdirectory(UnifiedCASManagement)
+    add_subdirectory(plugin)
 endif()
 
 if(WPEFRAMEWORK_CREATE_IPKG_TARGETS)
