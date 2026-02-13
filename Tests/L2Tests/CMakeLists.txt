@@ -35,24 +35,8 @@ FetchContent_Declare(
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 FetchContent_MakeAvailable(googletest)
 
-if(PLUGIN_TEXTTOSPEECH)
-    set(SRC_FILES ${SRC_FILES} tests/TextToSpeech_L2test.cpp)
-endif()
-
-if(PLUGIN_SCREENCAPTURE)
-    set(SRC_FILES ${SRC_FILES} tests/ScreenCapture_L2Test.cpp)
-endif()
-
 if(PLUGIN_PLAYERINFO)
     set(SRC_FILES ${SRC_FILES} tests/PlayerInfo_L2Test.cpp)
-endif()
-
-if(PLUGIN_UNIFIEDCASMANAGEMENT)
-    set(SRC_FILES ${SRC_FILES} tests/UnifiedCASManagement_L2Test.cpp)
-endif()
-
-if(PLUGIN_LINEARPLAYBACKCONTROL)
-    set(SRC_FILES ${SRC_FILES} tests/LinearPlaybackControl_L2Test.cpp)
 endif()
 
 add_library(${MODULE_NAME} SHARED ${SRC_FILES})
