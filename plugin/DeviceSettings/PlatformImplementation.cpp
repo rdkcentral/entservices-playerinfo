@@ -67,7 +67,7 @@ private:
             FeatureList parserFactories{gst_element_factory_list_get_elements(GST_ELEMENT_FACTORY_TYPE_PARSER | type, GST_RANK_MARGINAL)};
 
             FeatureList elements;
-            for (auto index: caps) {
+            for (const auto& index: caps) {
 
                 MediaTypes mediaType{gst_caps_from_string(index.first.c_str())};
                 if (elements = std::move(GstUtils::GstRegistryGetElementForMediaType(decoderFactories.get(), std::move(mediaType)))) {
@@ -473,7 +473,7 @@ private:
             {"audio/x-vorbis", Exchange::IPlayerProperties::AUDIO_VORBIS_OGG},
             {"audio/x-wav", Exchange::IPlayerProperties::AUDIO_WAV},
         };
-        if (GstUtils::GstRegistryCheckElementsForMediaTypes(audioCaps, _audioCodecs) != true) {
+        if (GstUtils::GstRegistryCheckElementsForMediaTypes(std::move(audioCaps), _audioCodecs) != true) {
             TRACE(Trace::Warning, (_T("There is no Audio Codec support available")));
         }
 
@@ -492,7 +492,7 @@ private:
             {"video/x-vp10", Exchange::IPlayerProperties::VideoCodec::VIDEO_VP10},
             {"video/x-av1", Exchange::IPlayerProperties::VideoCodec::VIDEO_AV1}
         };
-        if (GstUtils::GstRegistryCheckElementsForMediaTypes(videoCaps, _videoCodecs) != true) {
+        if (GstUtils::GstRegistryCheckElementsForMediaTypes(std::move(videoCaps), _videoCodecs) != true) {
             TRACE(Trace::Warning, (_T("There is no Video Codec support available")));
         }
     }
