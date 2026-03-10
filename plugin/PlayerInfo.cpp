@@ -18,6 +18,7 @@
  */
 
 #include "PlayerInfo.h"
+#include <stdio.h>
 
 #define API_VERSION_NUMBER_MAJOR 1
 #define API_VERSION_NUMBER_MINOR 0
@@ -121,6 +122,7 @@ namespace Plugin {
         if(message.length() != 0){
             Deinitialize(service);
         }
+        printf("test coverity workflow , %s");
         return message;
     }
 
