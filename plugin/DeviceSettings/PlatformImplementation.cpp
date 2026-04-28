@@ -358,12 +358,26 @@ public:
         mode = UNKNOWN;
         std::vector<std::string> hdmiArcPorts, hdmiPorts, speakerPorts, spdifPorts, headphonePorts;
 
+        // DEBUG: capture timestamp at entry
+        struct timespec ts_entry;
+        clock_gettime(CLOCK_MONOTONIC, &ts_entry);
+        LOGWARN("[SoundMode][DBG] Entry timestamp: %ld.%09ld", ts_entry.tv_sec, ts_entry.tv_nsec);
+
         try {
             device::List<device::AudioOutputPort> aPorts = device::Host::getInstance().getAudioOutputPorts();
+            LOGWARN("[SoundMode][DBG] Total audio ports enumerated: %zu", aPorts.size());
+
             for (size_t i = 0; i < aPorts.size(); i++) {
                 device::AudioOutputPort &aPort = aPorts.at(i);
-                if (aPort.isEnabled() && aPort.isConnected()) {
-                    auto typeId = aPort.getType().getId();
+                auto typeId = aPort.getType().getId();
+                bool isEnabled   = aPort.isEnabled();
+                bool isConnected = aPort.isConnected();
+
+                // DEBUG: log raw state of every port before filtering
+                LOGWARN("[SoundMode][DBG] Port[%zu] name=%s typeId=%d isEnabled=%d isConnected=%d",
+                        i, aPort.getName().c_str(), (int)typeId, (int)isEnabled, (int)isConnected);
+
+                if (isEnabled && isConnected) {
                     if (typeId == device::AudioOutputPortType::kARC)
                         hdmiArcPorts.push_back(aPort.getName());
                     else if (typeId == device::AudioOutputPortType::kHDMI)
@@ -376,6 +390,10 @@ public:
                         headphonePorts.push_back(aPort.getName());
                 }
             }
+
+            LOGWARN("[SoundMode][DBG] Qualified ports - ARC:%zu HDMI:%zu SPEAKER:%zu SPDIF:%zu HEADPHONE:%zu",
+                    hdmiArcPorts.size(), hdmiPorts.size(), speakerPorts.size(),
+                    spdifPorts.size(), headphonePorts.size());
 
             // Strict precedence: HDMI_ARC > HDMI > SPEAKER > SPDIF > HEADPHONE
             // first enumerated port is intentionally selected if multiple exist.
@@ -392,26 +410,46 @@ public:
                 selectedPort = headphonePorts.front();
             }
 
+            LOGWARN("[SoundMode][DBG] Selected port: '%s'", selectedPort.empty() ? "<none>" : selectedPort.c_str());
+
             if (!selectedPort.empty()) {
                 device::AudioOutputPort aPort = device::Host::getInstance().getAudioOutputPort(selectedPort);
-                if (aPort.isConnected()) {
-                    device::AudioStereoMode soundmode = aPort.getStereoMode();
+                bool isConnected2 = aPort.isConnected();
+                bool isStereoAuto = aPort.getStereoAuto();
+                device::AudioStereoMode soundmode = aPort.getStereoMode();
+
+                // DEBUG: re-check state at query time (detects TOCTOU disconnect)
+                LOGWARN("[SoundMode][DBG] Re-query port=%s isConnected=%d stereoAuto=%d stereoMode=%s",
+                        selectedPort.c_str(), (int)isConnected2, (int)isStereoAuto, soundmode.toString().c_str());
+
+                if (isConnected2) {
                     mode = dsAudioModeToSoundMode(soundmode);
                     // Auto mode for HDMI ARC and SPDIF
                     if ((aPort.getType().getId() == device::AudioOutputPortType::kARC || aPort.getType().getId() == device::AudioOutputPortType::kSPDIF)
-                            && aPort.getStereoAuto()) {
+                            && isStereoAuto) {
                         mode = SOUNDMODE_AUTO;
                     }
                     LOGINFO("Audio port %s has sound mode %d", selectedPort.c_str(), mode);
                 } else {
+                    LOGWARN("[SoundMode][DBG] TOCTOU: port %s was connected during scan but disconnected at query time.", selectedPort.c_str());
                     LOGWARN("Selected audio port %s is no longer connected.", selectedPort.c_str());
                 }
             } else {
+                LOGWARN("[SoundMode][DBG] No port passed enabled+connected filter - returning UNKNOWN.");
                 LOGWARN("No enabled and connected audio port found matching precedence.");
             }
         } catch (const device::Exception& err) {
             TRACE(Trace::Error, (_T("Exception during DeviceSetting library call. code = %d message = %s"), err.getCode(), err.what()));
         }
+
+        // DEBUG: capture timestamp at exit with final mode
+        struct timespec ts_exit;
+        clock_gettime(CLOCK_MONOTONIC, &ts_exit);
+        long elapsed_ms = (ts_exit.tv_sec - ts_entry.tv_sec) * 1000 +
+                          (ts_exit.tv_nsec - ts_entry.tv_nsec) / 1000000;
+        LOGWARN("[SoundMode][DBG] Exit timestamp: %ld.%09ld  elapsed=%ldms  finalMode=%d",
+                ts_exit.tv_sec, ts_exit.tv_nsec, elapsed_ms, (int)mode);
+
         return Core::ERROR_NONE;
     }
 
