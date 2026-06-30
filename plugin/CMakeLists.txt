@@ -66,6 +66,10 @@ if (RDK_SERVICE_L2_TEST)
     endif (TESTMOCKLIB_LIBRARIES)
 endif()
 
+option(USE_DEVICESETTING_PLUGIN
+    "Enable COM-RPC integration with entservices-devicesettings for PlayerInfo (replaces libds/IARM path)"
+    OFF)
+
 if (GSTREAMER_FOUND)
     target_link_libraries(${MODULE_NAME}
         PRIVATE
@@ -75,7 +79,27 @@ if (GSTREAMER_FOUND)
         PRIVATE
            ${GSTREAMER_INCLUDES})
 
-    if (USE_DEVICESETTINGS)
+    if (USE_DEVICESETTING_PLUGIN)
+        # ── DS COM-RPC path ──────────────────────────────────────────────────
+        # Uses entservices-devicesettings COM-RPC interfaces.
+        # Does NOT link libds.so or libdshalcli.so.
+        find_package(${NAMESPACE}Definitions REQUIRED)
+        find_package(${NAMESPACE}Helpers REQUIRED)
+
+        target_compile_definitions(${MODULE_NAME} PRIVATE USE_DEVICESETTING_PLUGIN)
+
+        target_link_libraries(${MODULE_NAME} PRIVATE
+            ${NAMESPACE}Definitions::${NAMESPACE}Definitions
+            ${NAMESPACE}::${NAMESPACE}Helpers)
+
+        target_sources(${MODULE_NAME}
+            PRIVATE
+                DSComRPC/PlatformImplementation.cpp)
+
+        message(STATUS "PlayerInfo: USE_DEVICESETTING_PLUGIN=ON — using DeviceSettings COM-RPC (no libds/IARM)")
+
+    elseif (USE_DEVICESETTINGS)
+        # ── Legacy libds / IARM path ─────────────────────────────────────────
         find_package(DS REQUIRED)
         find_package(IARMBus REQUIRED)
         target_include_directories(${MODULE_NAME} PRIVATE
@@ -89,7 +113,9 @@ if (GSTREAMER_FOUND)
         target_sources(${MODULE_NAME}
             PRIVATE
                 DeviceSettings/PlatformImplementation.cpp)
+
     else ()
+        # ── GStreamer-only path ───────────────────────────────────────────────
         target_sources(${MODULE_NAME}
             PRIVATE
                 GStreamer/PlatformImplementation.cpp)
