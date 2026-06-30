@@ -68,7 +68,7 @@ endif()
 
 option(USE_DEVICESETTING_PLUGIN
     "Enable COM-RPC integration with entservices-devicesettings for PlayerInfo (replaces libds/IARM path)"
-    OFF)
+    ON)
 
 if (GSTREAMER_FOUND)
     target_link_libraries(${MODULE_NAME}

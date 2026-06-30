@@ -81,7 +81,7 @@ namespace Plugin {
                     config->Configure(service);
                     config->Release();
                 } else {
-                    LOGERR("PlayerInfo::Initialize: IConfiguration not implemented by PlayerInfoImplementation");
+                    SYSLOG(Logging::Error, (_T("PlayerInfo::Initialize: IConfiguration not implemented by PlayerInfoImplementation")));
                 }
             }
 #endif
