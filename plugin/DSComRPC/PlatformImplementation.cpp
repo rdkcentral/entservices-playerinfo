@@ -65,7 +65,6 @@
 #include <gst/gst.h>
 
 #include "DeviceSettingsClientHelper.h"
-#include "DeviceSettingsConfig.h"
 
 namespace WPEFramework {
 namespace Plugin {
