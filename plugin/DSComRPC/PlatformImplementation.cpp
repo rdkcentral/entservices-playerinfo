@@ -588,29 +588,28 @@ protected:
     {
         LOGINFO("PlayerInfo: OnDeviceSettingsActivated — loading DS config stores");
 
-        // Load video port configuration
-        auto* vp = AcquireSubInterface<Exchange::IDeviceSettingsVideoPort>();
-        if (vp != nullptr) {
-            _adminLock.Lock();
-            LoadVideoPortConfig(vp, _videoConfigStore);
-            _adminLock.Unlock();
-            vp->Release();
-        } else {
+        // Load video port configuration via the member wrapper
+        // (acquires IDeviceSettingsVideoPort, loads config, releases internally)
+        _adminLock.Lock();
+        if (!LoadVideoPortConfig(_videoConfigStore)) {
             LOGWARN("OnDeviceSettingsActivated: IDeviceSettingsVideoPort not available");
         }
+        _adminLock.Unlock();
 
-        // Load audio configuration and subscribe to audio mode events
+        // Load audio configuration via the member wrapper, then subscribe to events
+        _adminLock.Lock();
+        if (!LoadAudioConfig(_audioConfigStore)) {
+            LOGWARN("OnDeviceSettingsActivated: IDeviceSettingsAudio not available");
+        }
+        _adminLock.Unlock();
+
+        // Register for audio mode change events — needs a separate acquire for Register()
         auto* audio = AcquireSubInterface<Exchange::IDeviceSettingsAudio>();
         if (audio != nullptr) {
-            _adminLock.Lock();
-            LoadAudioConfig(audio, _audioConfigStore);
-            _adminLock.Unlock();
-
-            // Register for audio mode change events (→ Dolby observers)
             audio->Register(&_dsAudioNotification);
             audio->Release();
         } else {
-            LOGWARN("OnDeviceSettingsActivated: IDeviceSettingsAudio not available");
+            LOGWARN("OnDeviceSettingsActivated: IDeviceSettingsAudio not available for Register");
         }
     }
 
