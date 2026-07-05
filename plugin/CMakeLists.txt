@@ -94,7 +94,7 @@ if (GSTREAMER_FOUND)
 
         target_sources(${MODULE_NAME}
             PRIVATE
-                DSComRPC/PlatformImplementation.cpp)
+                DS_COMRPC/PlatformImplementation.cpp)
 
         message(STATUS "PlayerInfo: USE_DEVICESETTING_PLUGIN=ON — using DeviceSettings COM-RPC (no libds/IARM)")
 
@@ -112,7 +112,7 @@ if (GSTREAMER_FOUND)
             ${DS_LIBRARIES})
         target_sources(${MODULE_NAME}
             PRIVATE
-                DeviceSettings/PlatformImplementation.cpp)
+                DS_IARM/PlatformImplementation.cpp)
 
     else ()
         # ── GStreamer-only path ───────────────────────────────────────────────
