@@ -262,9 +262,9 @@ public:
 
         // Find the default video port (HDMI0 preferred, first entry as fallback)
         _adminLock.Lock();
-        std::string defaultPortName = _videoConfigStore.GetDefaultVideoPortName();
+        std::string defaultPortName = _vpConfigStore.GetDefaultVideoPortName();
         VideoPortEntry entry;
-        bool found = _videoConfigStore.ResolveByName(defaultPortName, entry);
+        bool found = _vpConfigStore.ResolveByName(defaultPortName, entry);
         _adminLock.Unlock();
 
         Exchange::IDeviceSettingsVideoPort::VideoPortResolution vpRes{};
@@ -522,7 +522,7 @@ public:
         // Build audio port entry list once under lock
         _adminLock.Lock();
         std::vector<AudioPortEntry> entries;
-        _audioConfigStore.BuildAudioPortEntries(entries);
+        _audioConfigStore.getAudioPortEntries(entries);
         _adminLock.Unlock();
 
         bool found = false;
@@ -598,7 +598,7 @@ public:
             // No HDMI — enumerate and use the first available port as fallback
             _adminLock.Lock();
             std::vector<AudioPortEntry> entries;
-            _audioConfigStore.BuildAudioPortEntries(entries);
+            _audioConfigStore.getAudioPortEntries(entries);
             _adminLock.Unlock();
 
             for (size_t i = 0; i < entries.size(); ++i) {
@@ -639,7 +639,7 @@ protected:
         // Load video port configuration via the member wrapper
         // (acquires IDeviceSettingsVideoPort, loads config, releases internally)
         _adminLock.Lock();
-        if (!LoadVideoPortConfig(_videoConfigStore)) {
+        if (!LoadVideoPortConfig(_vpConfigStore)) {
             LOGWARN("OnDeviceSettingsActivated: IDeviceSettingsVideoPort not available");
         }
         _adminLock.Unlock();
@@ -670,7 +670,7 @@ protected:
     {
         LOGINFO("PlayerInfo: OnDeviceSettingsDeactivated — clearing DS config stores");
         _adminLock.Lock();
-        _videoConfigStore.Clear();
+        _vpConfigStore.Clear();
         _audioConfigStore.Clear();
         _adminLock.Unlock();
     }
@@ -801,9 +801,9 @@ private:
         { "4096x2160", RESOLUTION_2160P   },
     };
 
-    // DS-loaded config stores (populated in OnDeviceSettingsActivated)
-    VideoPortConfigStore _videoConfigStore;
-    AudioConfigStore     _audioConfigStore;
+    // DS-loaded config stores are provided as protected base class members:
+    //   _vpConfigStore    (VideoPortConfigStore) from DeviceSettingsClientHelper
+    //   _audioConfigStore (AudioConfigStore)     from DeviceSettingsClientHelper
 
     // Dolby audio mode change observer list
     std::list<Exchange::Dolby::IOutput::INotification*> _observers;
