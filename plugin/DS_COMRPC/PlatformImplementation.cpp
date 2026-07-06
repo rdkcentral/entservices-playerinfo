@@ -267,15 +267,20 @@ public:
         bool found = _videoConfigStore.ResolveByName(defaultPortName, entry);
         _adminLock.Unlock();
 
+        Exchange::IDeviceSettingsVideoPort::VideoPortResolution vpRes{};
+        bool vpResValid = false;
         if (found) {
             int32_t handle = -1;
             if (vp->GetVideoPort(entry.type, entry.index, handle) == Core::ERROR_NONE
-                && handle >= 0) {
-                Exchange::IDeviceSettingsVideoPort::VideoPortResolution vpRes;
+                && handle != -1) {
                 if (vp->GetVideoPortResolution(handle, vpRes) == Core::ERROR_NONE) {
                     currentResolution = vpRes.name;
-                    LOGINFO("Resolution: current video port resolution = %s",
-                            currentResolution.c_str());
+                    vpResValid = true;
+                    LOGINFO("Resolution: name='%s' pixelRes=%d frameRate=%d interlaced=%s",
+                            currentResolution.c_str(),
+                            static_cast<int>(vpRes.pixelResolution),
+                            static_cast<int>(vpRes.frameRate),
+                            vpRes.interlaced ? "true" : "false");
                 } else {
                     LOGERR("Resolution: GetVideoPortResolution failed for handle=%d", handle);
                 }
@@ -290,11 +295,12 @@ public:
         vp->Release();
 
         if (!currentResolution.empty()) {
+            // 1. Exact named string match ("1080p60", "720p", etc.)
             auto it = _resolutions.find(currentResolution);
             if (it != _resolutions.end()) {
                 res = it->second;
             } else {
-                // Try base resolution (strip last two chars = frame-rate suffix)
+                // 2. Strip 2-char frame-rate suffix ("1080p60" → "1080p")
                 if (currentResolution.size() > 2) {
                     string baseRes = currentResolution.substr(0, currentResolution.size() - 2);
                     auto it2 = _resolutions.find(baseRes);
@@ -302,6 +308,40 @@ public:
                         res = it2->second;
                     }
                 }
+                // 3. WxH dimension string ("1920x1080", etc.)
+                if (res == RESOLUTION_UNKNOWN) {
+                    auto it3 = _resolutionsByDimension.find(currentResolution);
+                    if (it3 != _resolutionsByDimension.end()) {
+                        res = it3->second;
+                        LOGINFO("Resolution: matched by dimension string '%s'", currentResolution.c_str());
+                    }
+                }
+            }
+        }
+
+        // 4. Final fallback: use VideoPortResolution struct fields directly
+        //    (pixelResolution enum + interlaced flag) — bypasses string parsing entirely
+        if (res == RESOLUTION_UNKNOWN && vpResValid) {
+            using VR = Exchange::IDeviceSettingsVideoPort::VideoResolution;
+            res = vpRes.interlaced
+                ? (vpRes.pixelResolution == VR::DS_VIDEO_PIXELRES_1920X1080 ? RESOLUTION_1080I
+                 : vpRes.pixelResolution == VR::DS_VIDEO_PIXELRES_720X480    ? RESOLUTION_480I
+                 : vpRes.pixelResolution == VR::DS_VIDEO_PIXELRES_720X576    ? RESOLUTION_576I
+                 : RESOLUTION_UNKNOWN)
+                : (vpRes.pixelResolution == VR::DS_VIDEO_PIXELRES_1920X1080  ? RESOLUTION_1080P
+                 : vpRes.pixelResolution == VR::DS_VIDEO_PIXELRES_1280X720   ? RESOLUTION_720P
+                 : vpRes.pixelResolution == VR::DS_VIDEO_PIXELRES_3840X2160  ? RESOLUTION_2160P
+                 : vpRes.pixelResolution == VR::DS_VIDEO_PIXELRES_4096X2160  ? RESOLUTION_2160P
+                 : vpRes.pixelResolution == VR::DS_VIDEO_PIXELRES_1366X768   ? RESOLUTION_768P
+                 : vpRes.pixelResolution == VR::DS_VIDEO_PIXELRES_720X480    ? RESOLUTION_480P
+                 : vpRes.pixelResolution == VR::DS_VIDEO_PIXELRES_720X576    ? RESOLUTION_576P
+                 : RESOLUTION_UNKNOWN);
+            if (res != RESOLUTION_UNKNOWN) {
+                LOGINFO("Resolution: matched by pixelResolution=%d interlaced=%s",
+                        static_cast<int>(vpRes.pixelResolution), vpRes.interlaced ? "true" : "false");
+            } else {
+                LOGWARN("Resolution: all lookups failed for '%s' pixelRes=%d",
+                        currentResolution.c_str(), static_cast<int>(vpRes.pixelResolution));
             }
         }
 
@@ -325,21 +365,29 @@ public:
         int32_t handle = -1;
         if (hdmiPresent) {
             // Check HDMI0 — only read LE if port is enabled (connected)
-            if (audio->GetAudioPort(AudioPortType::AUDIO_PORT_TYPE_HDMI, 0, handle) == Core::ERROR_NONE
-                && handle >= 0) {
+            LOGINFO("IsAudioEquivalenceEnabled: hdmiPresent=true, getting HDMI port");
+            uint32_t getPortRc = audio->GetAudioPort(AudioPortType::AUDIO_PORT_TYPE_HDMI, 0, handle);
+            LOGINFO("IsAudioEquivalenceEnabled: GetAudioPort rc=%u handle=%d", getPortRc, handle);
+            if (getPortRc == Core::ERROR_NONE && handle != -1) {
                 bool enabled = false;
-                if (audio->IsAudioPortEnabled(handle, enabled) == Core::ERROR_NONE && enabled) {
+                uint32_t enabledRc = audio->IsAudioPortEnabled(handle, enabled);
+                LOGINFO("IsAudioEquivalenceEnabled: IsAudioPortEnabled rc=%u enabled=%s",
+                        enabledRc, enabled ? "true" : "false");
+                if (enabledRc == Core::ERROR_NONE && enabled) {
                     audio->GetAudioLEConfig(handle, isEnabled);
                     LOGINFO("IsAudioEquivalenceEnabled (HDMI0) = %s",
                             isEnabled ? "Enabled" : "Disabled");
                 } else {
-                    LOGWARN("IsAudioEquivalenceEnabled: HDMI0 not enabled/connected");
+                    LOGWARN("IsAudioEquivalenceEnabled: HDMI0 not enabled/connected (rc=%u enabled=%s)",
+                            enabledRc, enabled ? "true" : "false");
                 }
             }
         } else {
             // Fallback to SPEAKER0
+            LOGINFO("IsAudioEquivalenceEnabled: hdmiPresent=false, falling back to SPEAKER0");
             if (audio->GetAudioPort(AudioPortType::AUDIO_PORT_TYPE_SPEAKER, 0, handle) == Core::ERROR_NONE
-                && handle >= 0) {
+                && handle != -1) {
+                LOGINFO("IsAudioEquivalenceEnabled: SPEAKER0 handle=%d", handle);
                 audio->GetAudioLEConfig(handle, isEnabled);
                 LOGINFO("IsAudioEquivalenceEnabled (SPEAKER0) = %s",
                         isEnabled ? "Enabled" : "Disabled");
@@ -404,7 +452,7 @@ public:
         int32_t hdmiHandle     = -1;
 
         if (audio->GetAudioPort(AudioPortType::AUDIO_PORT_TYPE_HDMIARC, 0, arcHandle) == Core::ERROR_NONE
-            && arcHandle >= 0) {
+            && arcHandle != -1) {
             // Platform supports HDMI_ARC
             bool arcEnabled = false;
             audio->IsAudioPortEnabled(arcHandle, arcEnabled);
@@ -417,7 +465,7 @@ public:
         if (!arcConnected) {
             // Fall back to HDMI
             if (audio->GetAudioPort(AudioPortType::AUDIO_PORT_TYPE_HDMI, 0, hdmiHandle) == Core::ERROR_NONE
-                && hdmiHandle >= 0) {
+                && hdmiHandle != -1) {
                 bool hdmiEnabled = false;
                 audio->IsAudioPortEnabled(hdmiHandle, hdmiEnabled);
                 if (hdmiEnabled) {
@@ -426,7 +474,7 @@ public:
             }
         }
 
-        if (selectedHandle >= 0) {
+        if (selectedHandle != -1) {
             DolbyAtmosCapability capability = DolbyAtmosCapability::AUDIO_DOLBY_ATMOS_NOT_SUPPORTED;
             audio->GetAudioSinkDeviceAtmosCapability(selectedHandle, capability);
             supported = (capability == DolbyAtmosCapability::AUDIO_DOLBY_ATMOS_METADATA);
@@ -436,7 +484,7 @@ public:
             // Neither HDMI_ARC nor HDMI connected — query SPEAKER as host-sink fallback
             int32_t spkHandle = -1;
             if (audio->GetAudioPort(AudioPortType::AUDIO_PORT_TYPE_SPEAKER, 0, spkHandle) == Core::ERROR_NONE
-                && spkHandle >= 0) {
+                && spkHandle != -1) {
                 DolbyAtmosCapability capability = DolbyAtmosCapability::AUDIO_DOLBY_ATMOS_NOT_SUPPORTED;
                 audio->GetAudioSinkDeviceAtmosCapability(spkHandle, capability);
                 supported = (capability == DolbyAtmosCapability::AUDIO_DOLBY_ATMOS_METADATA);
@@ -486,7 +534,7 @@ public:
 
                 int32_t handle = -1;
                 if (audio->GetAudioPort(targetType, entries[ei].index, handle) != Core::ERROR_NONE
-                    || handle < 0) {
+                    || handle == -1) {
                     continue;
                 }
 
@@ -537,7 +585,7 @@ public:
         int32_t handle = -1;
         if (hdmiPresent) {
             if (audio->GetAudioPort(AudioPortType::AUDIO_PORT_TYPE_HDMI, 0, handle) == Core::ERROR_NONE
-                && handle >= 0) {
+                && handle != -1) {
                 bool enabled = false;
                 if (audio->IsAudioPortEnabled(handle, enabled) == Core::ERROR_NONE && enabled) {
                     audio->SetAudioAtmosOutputMode(handle, enable);
@@ -555,7 +603,7 @@ public:
 
             for (size_t i = 0; i < entries.size(); ++i) {
                 if (audio->GetAudioPort(entries[i].type, entries[i].index, handle) == Core::ERROR_NONE
-                    && handle >= 0) {
+                    && handle != -1) {
                     audio->SetAudioAtmosOutputMode(handle, enable);
                     LOGINFO("EnableAtmosOutput: fallback port type=%d index=%d atmos=%s",
                             static_cast<int>(entries[i].type), entries[i].index,
@@ -738,6 +786,19 @@ private:
         { "2160p25",  RESOLUTION_2160P25 }, { "2160p50", RESOLUTION_2160P50 },
         { "2160p30",  RESOLUTION_2160P30 }, { "2160p60", RESOLUTION_2160P60 },
         { "2160p",    RESOLUTION_2160P   }
+    };
+
+    // WxH format aliases — HAL may return pixel dimensions instead of named strings
+    std::map<string, Exchange::IPlayerProperties::PlaybackResolution> _resolutionsByDimension =
+    {
+        { "640x480",   RESOLUTION_480P    },
+        { "720x480",   RESOLUTION_480P    },
+        { "720x576",   RESOLUTION_576P    },
+        { "1280x720",  RESOLUTION_720P    },
+        { "1366x768",  RESOLUTION_768P    },
+        { "1920x1080", RESOLUTION_1080P   },
+        { "3840x2160", RESOLUTION_2160P   },
+        { "4096x2160", RESOLUTION_2160P   },
     };
 
     // DS-loaded config stores (populated in OnDeviceSettingsActivated)
