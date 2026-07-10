@@ -270,9 +270,11 @@ public:
         Exchange::IDeviceSettingsVideoPort::VideoPortResolution vpRes{};
         bool vpResValid = false;
         if (found) {
-            int32_t handle = -1;
-            if (vp->GetVideoPort(entry.type, entry.index, handle) == Core::ERROR_NONE
-                && handle != -1) {
+            // Use cached handle populated by LoadVideoPortConfig in OnDeviceSettingsActivated
+            _adminLock.Lock();
+            int32_t handle = getCachedVideoPortHandle(defaultPortName);
+            _adminLock.Unlock();
+            if (handle != INVALID_DS_HANDLE) {
                 if (vp->GetVideoPortResolution(handle, vpRes) == Core::ERROR_NONE) {
                     currentResolution = vpRes.name;
                     vpResValid = true;
@@ -285,8 +287,7 @@ public:
                     LOGERR("Resolution: GetVideoPortResolution failed for handle=%d", handle);
                 }
             } else {
-                LOGERR("Resolution: GetVideoPort failed for port '%s' (type=%d, index=%d)",
-                       defaultPortName.c_str(), static_cast<int>(entry.type), entry.index);
+                LOGERR("Resolution: cached handle not found for port '%s'", defaultPortName.c_str());
             }
         } else {
             LOGWARN("Resolution: video config not yet loaded — DS may not be active");
@@ -362,13 +363,13 @@ public:
             return Core::ERROR_NONE;
         }
 
-        int32_t handle = -1;
+        // Use cached handles from LoadAudioConfig (populated in OnDeviceSettingsActivated)
+        _adminLock.Lock();
+        int32_t handle = hdmiPresent ? getCachedAudioPortHandle("HDMI0") : INVALID_DS_HANDLE;
+        _adminLock.Unlock();
         if (hdmiPresent) {
-            // Check HDMI0 — only read LE if port is enabled (connected)
-            LOGINFO("IsAudioEquivalenceEnabled: hdmiPresent=true, getting HDMI port");
-            uint32_t getPortRc = audio->GetAudioPort(AudioPortType::AUDIO_PORT_TYPE_HDMI, 0, handle);
-            LOGINFO("IsAudioEquivalenceEnabled: GetAudioPort rc=%u handle=%d", getPortRc, handle);
-            if (getPortRc == Core::ERROR_NONE && handle != -1) {
+            LOGINFO("IsAudioEquivalenceEnabled: hdmiPresent=true, handle=%d", handle);
+            if (handle != INVALID_DS_HANDLE) {
                 bool enabled = false;
                 uint32_t enabledRc = audio->IsAudioPortEnabled(handle, enabled);
                 LOGINFO("IsAudioEquivalenceEnabled: IsAudioPortEnabled rc=%u enabled=%s",
@@ -383,10 +384,12 @@ public:
                 }
             }
         } else {
-            // Fallback to SPEAKER0
+            // Fallback to SPEAKER0 — use cached handle
             LOGINFO("IsAudioEquivalenceEnabled: hdmiPresent=false, falling back to SPEAKER0");
-            if (audio->GetAudioPort(AudioPortType::AUDIO_PORT_TYPE_SPEAKER, 0, handle) == Core::ERROR_NONE
-                && handle != -1) {
+            _adminLock.Lock();
+            handle = getCachedAudioPortHandle("SPEAKER0");
+            _adminLock.Unlock();
+            if (handle != INVALID_DS_HANDLE) {
                 LOGINFO("IsAudioEquivalenceEnabled: SPEAKER0 handle=%d", handle);
                 audio->GetAudioLEConfig(handle, isEnabled);
                 LOGINFO("IsAudioEquivalenceEnabled (SPEAKER0) = %s",
@@ -445,14 +448,16 @@ public:
             return Core::ERROR_NONE;
         }
 
-        // Prefer HDMI_ARC (index 0) over HDMI (index 0) — same logic as DeviceSettings/ variant
-        int32_t selectedHandle = -1;
-        bool    arcConnected   = false;
-        int32_t arcHandle      = -1;
-        int32_t hdmiHandle     = -1;
+        // Use cached handles from LoadAudioConfig (populated in OnDeviceSettingsActivated)
+        _adminLock.Lock();
+        int32_t arcHandle  = getCachedAudioPortHandle("HDMI_ARC0");
+        int32_t hdmiHandle = getCachedAudioPortHandle("HDMI0");
+        _adminLock.Unlock();
 
-        if (audio->GetAudioPort(AudioPortType::AUDIO_PORT_TYPE_HDMIARC, 0, arcHandle) == Core::ERROR_NONE
-            && arcHandle != -1) {
+        int32_t selectedHandle = INVALID_DS_HANDLE;
+        bool    arcConnected   = false;
+
+        if (arcHandle != INVALID_DS_HANDLE) {
             // Platform supports HDMI_ARC
             bool arcEnabled = false;
             audio->IsAudioPortEnabled(arcHandle, arcEnabled);
@@ -462,29 +467,27 @@ public:
             }
         }
 
-        if (!arcConnected) {
+        if (!arcConnected && hdmiHandle != INVALID_DS_HANDLE) {
             // Fall back to HDMI
-            if (audio->GetAudioPort(AudioPortType::AUDIO_PORT_TYPE_HDMI, 0, hdmiHandle) == Core::ERROR_NONE
-                && hdmiHandle != -1) {
-                bool hdmiEnabled = false;
-                audio->IsAudioPortEnabled(hdmiHandle, hdmiEnabled);
-                if (hdmiEnabled) {
-                    selectedHandle = hdmiHandle;
-                }
+            bool hdmiEnabled = false;
+            audio->IsAudioPortEnabled(hdmiHandle, hdmiEnabled);
+            if (hdmiEnabled) {
+                selectedHandle = hdmiHandle;
             }
         }
 
-        if (selectedHandle != -1) {
+        if (selectedHandle != INVALID_DS_HANDLE) {
             DolbyAtmosCapability capability = DolbyAtmosCapability::AUDIO_DOLBY_ATMOS_NOT_SUPPORTED;
             audio->GetAudioSinkDeviceAtmosCapability(selectedHandle, capability);
             supported = (capability == DolbyAtmosCapability::AUDIO_DOLBY_ATMOS_METADATA);
             LOGINFO("AtmosMetadata: capability=%d, supported=%s",
                     static_cast<int>(capability), supported ? "true" : "false");
         } else {
-            // Neither HDMI_ARC nor HDMI connected — query SPEAKER as host-sink fallback
-            int32_t spkHandle = -1;
-            if (audio->GetAudioPort(AudioPortType::AUDIO_PORT_TYPE_SPEAKER, 0, spkHandle) == Core::ERROR_NONE
-                && spkHandle != -1) {
+            // Neither HDMI_ARC nor HDMI connected — fallback to SPEAKER (cached handle)
+            _adminLock.Lock();
+            int32_t spkHandle = getCachedAudioPortHandle("SPEAKER0");
+            _adminLock.Unlock();
+            if (spkHandle != INVALID_DS_HANDLE) {
                 DolbyAtmosCapability capability = DolbyAtmosCapability::AUDIO_DOLBY_ATMOS_NOT_SUPPORTED;
                 audio->GetAudioSinkDeviceAtmosCapability(spkHandle, capability);
                 supported = (capability == DolbyAtmosCapability::AUDIO_DOLBY_ATMOS_METADATA);
@@ -519,10 +522,14 @@ public:
             return Core::ERROR_NONE;
         }
 
-        // Build audio port entry list once under lock
+        // Fetch entries and all cached handles under a single lock acquisition
         _adminLock.Lock();
         std::vector<AudioPortEntry> entries;
         _audioConfigStore.getAudioPortEntries(entries);
+        std::vector<int32_t> handles(entries.size(), INVALID_DS_HANDLE);
+        for (size_t i = 0; i < entries.size(); ++i) {
+            handles[i] = getCachedAudioPortHandle(entries[i].name);
+        }
         _adminLock.Unlock();
 
         bool found = false;
@@ -532,9 +539,8 @@ public:
             for (size_t ei = 0; ei < entries.size() && !found; ++ei) {
                 if (entries[ei].type != targetType) continue;
 
-                int32_t handle = -1;
-                if (audio->GetAudioPort(targetType, entries[ei].index, handle) != Core::ERROR_NONE
-                    || handle == -1) {
+                int32_t handle = handles[ei];
+                if (handle == INVALID_DS_HANDLE) {
                     continue;
                 }
 
@@ -582,32 +588,29 @@ public:
             return Core::ERROR_NONE;
         }
 
-        int32_t handle = -1;
-        if (hdmiPresent) {
-            if (audio->GetAudioPort(AudioPortType::AUDIO_PORT_TYPE_HDMI, 0, handle) == Core::ERROR_NONE
-                && handle != -1) {
-                bool enabled = false;
-                if (audio->IsAudioPortEnabled(handle, enabled) == Core::ERROR_NONE && enabled) {
-                    audio->SetAudioAtmosOutputMode(handle, enable);
-                    LOGINFO("EnableAtmosOutput: HDMI0 atmos=%s", enable ? "on" : "off");
-                } else {
-                    LOGWARN("EnableAtmosOutput: HDMI0 not enabled/connected");
-                }
+        // Use cached handle from LoadAudioConfig
+        _adminLock.Lock();
+        int32_t handle = hdmiPresent ? getCachedAudioPortHandle("HDMI0") : INVALID_DS_HANDLE;
+        _adminLock.Unlock();
+        if (hdmiPresent && handle != INVALID_DS_HANDLE) {
+            bool enabled = false;
+            if (audio->IsAudioPortEnabled(handle, enabled) == Core::ERROR_NONE && enabled) {
+                audio->SetAudioAtmosOutputMode(handle, enable);
+                LOGINFO("EnableAtmosOutput: HDMI0 atmos=%s", enable ? "on" : "off");
+            } else {
+                LOGWARN("EnableAtmosOutput: HDMI0 not enabled/connected");
             }
-        } else {
-            // No HDMI — enumerate and use the first available port as fallback
+        } else if (!hdmiPresent) {
+            // No HDMI — enumerate ports and use the first available (fetch all handles in one lock)
             _adminLock.Lock();
-            std::vector<AudioPortEntry> entries;
-            _audioConfigStore.getAudioPortEntries(entries);
+            auto portHandles = getAudioPortHandleEntries();
             _adminLock.Unlock();
 
-            for (size_t i = 0; i < entries.size(); ++i) {
-                if (audio->GetAudioPort(entries[i].type, entries[i].index, handle) == Core::ERROR_NONE
-                    && handle != -1) {
-                    audio->SetAudioAtmosOutputMode(handle, enable);
-                    LOGINFO("EnableAtmosOutput: fallback port type=%d index=%d atmos=%s",
-                            static_cast<int>(entries[i].type), entries[i].index,
-                            enable ? "on" : "off");
+            for (const auto& kv : portHandles) {
+                if (kv.second != INVALID_DS_HANDLE) {
+                    audio->SetAudioAtmosOutputMode(kv.second, enable);
+                    LOGINFO("EnableAtmosOutput: fallback port '%s' atmos=%s",
+                            kv.first.c_str(), enable ? "on" : "off");
                     break;
                 }
             }
