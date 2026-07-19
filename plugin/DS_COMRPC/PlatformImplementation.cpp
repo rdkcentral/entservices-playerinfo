@@ -25,7 +25,7 @@
  *
  * libds / IARM / device:: headers are NOT included here.
  * DS queries go through the entservices-devicesettings COM-RPC plugin using
- * DeviceSettingsClientHelper::AcquireSubInterface<T>().
+ * DSHelper::AcquireSubInterface<T>().
  *
  * Mapping: old libds call → new DS COM-RPC call
  *  Resolution()
@@ -64,7 +64,7 @@
 
 #include <gst/gst.h>
 
-#include "DeviceSettingsClientHelper.h"
+#include "DeviceSettingsInterface.h"
 
 namespace WPEFramework {
 namespace Plugin {
@@ -73,7 +73,7 @@ class PlayerInfoImplementation
     : public Exchange::IPlayerProperties
     , public Exchange::Dolby::IOutput
     , public Exchange::IConfiguration
-    , public DeviceSettingsClientHelper
+    , public DSHelper
 {
 private:
     // =========================================================================
@@ -205,12 +205,12 @@ public:
     ~PlayerInfoImplementation() override
     {
         // Unregister audio notification before the DS link is closed
-        auto* audio = AcquireSubInterface<Exchange::IDeviceSettingsAudio>();
+        auto* audio = DSHelper::AcquireSubInterface<Exchange::IDeviceSettingsAudio>();
         if (audio != nullptr) {
             audio->Unregister(&_dsAudioNotification);
             audio->Release();
         }
-        DeviceSettingsClientHelper::Close();
+        DSHelper::Close();
         _audioCodecs.clear();
         _videoCodecs.clear();
         PlayerInfoImplementation::_instance = nullptr;
@@ -223,7 +223,7 @@ public:
     {
         // Opens link to DeviceSettings plugin.
         // If DS is already active, OnDeviceSettingsActivated() is called immediately.
-        const uint32_t result = DeviceSettingsClientHelper::Open(service);
+        const uint32_t result = DSHelper::Open(service);
         if (result != Core::ERROR_NONE) {
             LOGERR("Configure: Failed to open DeviceSettings link (result=%u)", result);
         }
@@ -252,7 +252,7 @@ public:
         res = RESOLUTION_UNKNOWN;
 
         // Acquire VideoPort sub-interface
-        auto* vp = const_cast<PlayerInfoImplementation*>(this)->AcquireSubInterface<Exchange::IDeviceSettingsVideoPort>();
+        auto* vp = const_cast<PlayerInfoImplementation*>(this)->DSHelper::AcquireSubInterface<Exchange::IDeviceSettingsVideoPort>();
         if (vp == nullptr) {
             LOGERR("Resolution: IDeviceSettingsVideoPort unavailable");
             return Core::ERROR_NONE;
@@ -261,19 +261,16 @@ public:
         string currentResolution;
 
         // Find the default video port (HDMI0 preferred, first entry as fallback)
-        _adminLock.Lock();
-        std::string defaultPortName = _vpConfigStore.GetDefaultVideoPortName();
+        // DSHelper accessors are thread-safe — no external lock needed.
+        std::string defaultPortName = DSHelper::getDefaultVideoPortName();
         VideoPortEntry entry;
-        bool found = _vpConfigStore.ResolveByName(defaultPortName, entry);
-        _adminLock.Unlock();
+        bool found = DSHelper::resolveVideoPortByName(defaultPortName, entry);
 
         Exchange::IDeviceSettingsVideoPort::VideoPortResolution vpRes{};
         bool vpResValid = false;
         if (found) {
-            // Use cached handle populated by LoadVideoPortConfig in OnDeviceSettingsActivated
-            _adminLock.Lock();
-            int32_t handle = getCachedVideoPortHandle(defaultPortName);
-            _adminLock.Unlock();
+            // Use cached handle populated by DSHelper::LoadAllConfigs()
+            int32_t handle = DSHelper::getCachedVideoPortHandle(defaultPortName);
             if (handle != INVALID_DS_HANDLE) {
                 if (vp->GetVideoPortResolution(handle, vpRes) == Core::ERROR_NONE) {
                     currentResolution = vpRes.name;
@@ -353,20 +350,17 @@ public:
     {
         isEnabled = false;
 
-        _adminLock.Lock();
-        bool hdmiPresent = _audioConfigStore.IsHDMIOutPortPresent();
-        _adminLock.Unlock();
+        // DSHelper accessors are thread-safe — no external lock needed.
+        bool hdmiPresent = DSHelper::isHDMIAudioOutPortPresent();
 
-        auto* audio = const_cast<PlayerInfoImplementation*>(this)->AcquireSubInterface<Exchange::IDeviceSettingsAudio>();
+        auto* audio = const_cast<PlayerInfoImplementation*>(this)->DSHelper::AcquireSubInterface<Exchange::IDeviceSettingsAudio>();
         if (audio == nullptr) {
             LOGERR("IsAudioEquivalenceEnabled: IDeviceSettingsAudio unavailable");
             return Core::ERROR_NONE;
         }
 
-        // Use cached handles from LoadAudioConfig (populated in OnDeviceSettingsActivated)
-        _adminLock.Lock();
-        int32_t handle = hdmiPresent ? getCachedAudioPortHandle("HDMI0") : INVALID_DS_HANDLE;
-        _adminLock.Unlock();
+        // Use cached handles populated by DSHelper::LoadAllConfigs()
+        int32_t handle = hdmiPresent ? DSHelper::getCachedAudioPortHandle("HDMI0") : INVALID_DS_HANDLE;
         if (hdmiPresent) {
             LOGINFO("IsAudioEquivalenceEnabled: hdmiPresent=true, handle=%d", handle);
             if (handle != INVALID_DS_HANDLE) {
@@ -386,9 +380,7 @@ public:
         } else {
             // Fallback to SPEAKER0 — use cached handle
             LOGINFO("IsAudioEquivalenceEnabled: hdmiPresent=false, falling back to SPEAKER0");
-            _adminLock.Lock();
-            handle = getCachedAudioPortHandle("SPEAKER0");
-            _adminLock.Unlock();
+            handle = DSHelper::getCachedAudioPortHandle("SPEAKER0");
             if (handle != INVALID_DS_HANDLE) {
                 LOGINFO("IsAudioEquivalenceEnabled: SPEAKER0 handle=%d", handle);
                 audio->GetAudioLEConfig(handle, isEnabled);
@@ -442,17 +434,15 @@ public:
     {
         supported = false;
 
-        auto* audio = const_cast<PlayerInfoImplementation*>(this)->AcquireSubInterface<Exchange::IDeviceSettingsAudio>();
+        auto* audio = const_cast<PlayerInfoImplementation*>(this)->DSHelper::AcquireSubInterface<Exchange::IDeviceSettingsAudio>();
         if (audio == nullptr) {
             LOGERR("AtmosMetadata: IDeviceSettingsAudio unavailable");
             return Core::ERROR_NONE;
         }
 
-        // Use cached handles from LoadAudioConfig (populated in OnDeviceSettingsActivated)
-        _adminLock.Lock();
-        int32_t arcHandle  = getCachedAudioPortHandle("HDMI_ARC0");
-        int32_t hdmiHandle = getCachedAudioPortHandle("HDMI0");
-        _adminLock.Unlock();
+        // Use cached handles populated by DSHelper::LoadAllConfigs()
+        int32_t arcHandle  = DSHelper::getCachedAudioPortHandle("HDMI_ARC0");
+        int32_t hdmiHandle = DSHelper::getCachedAudioPortHandle("HDMI0");
 
         int32_t selectedHandle = INVALID_DS_HANDLE;
         bool    arcConnected   = false;
@@ -484,9 +474,7 @@ public:
                     static_cast<int>(capability), supported ? "true" : "false");
         } else {
             // Neither HDMI_ARC nor HDMI connected — fallback to SPEAKER (cached handle)
-            _adminLock.Lock();
-            int32_t spkHandle = getCachedAudioPortHandle("SPEAKER0");
-            _adminLock.Unlock();
+            int32_t spkHandle = DSHelper::getCachedAudioPortHandle("SPEAKER0");
             if (spkHandle != INVALID_DS_HANDLE) {
                 DolbyAtmosCapability capability = DolbyAtmosCapability::AUDIO_DOLBY_ATMOS_NOT_SUPPORTED;
                 audio->GetAudioSinkDeviceAtmosCapability(spkHandle, capability);
@@ -516,21 +504,19 @@ public:
         };
         static const size_t kPriorityCount = sizeof(kPriority) / sizeof(kPriority[0]);
 
-        auto* audio = const_cast<PlayerInfoImplementation*>(this)->AcquireSubInterface<Exchange::IDeviceSettingsAudio>();
+        auto* audio = const_cast<PlayerInfoImplementation*>(this)->DSHelper::AcquireSubInterface<Exchange::IDeviceSettingsAudio>();
         if (audio == nullptr) {
             LOGERR("SoundMode: IDeviceSettingsAudio unavailable");
             return Core::ERROR_NONE;
         }
 
-        // Fetch entries and all cached handles under a single lock acquisition
-        _adminLock.Lock();
+        // Fetch entries and all cached handles via DSHelper (thread-safe, no external lock needed)
         std::vector<AudioPortEntry> entries;
-        _audioConfigStore.getAudioPortEntries(entries);
+        DSHelper::getAudioPortEntries(entries);
         std::vector<int32_t> handles(entries.size(), INVALID_DS_HANDLE);
         for (size_t i = 0; i < entries.size(); ++i) {
-            handles[i] = getCachedAudioPortHandle(entries[i].name);
+            handles[i] = DSHelper::getCachedAudioPortHandle(entries[i].name);
         }
-        _adminLock.Unlock();
 
         bool found = false;
         for (size_t pi = 0; pi < kPriorityCount && !found; ++pi) {
@@ -578,20 +564,17 @@ public:
 
     uint32_t EnableAtmosOutput(const bool& enable /* @in */)
     {
-        _adminLock.Lock();
-        bool hdmiPresent = _audioConfigStore.IsHDMIOutPortPresent();
-        _adminLock.Unlock();
+        // DSHelper accessors are thread-safe — no external lock needed.
+        bool hdmiPresent = DSHelper::isHDMIAudioOutPortPresent();
 
-        auto* audio = AcquireSubInterface<Exchange::IDeviceSettingsAudio>();
+        auto* audio = DSHelper::AcquireSubInterface<Exchange::IDeviceSettingsAudio>();
         if (audio == nullptr) {
             LOGERR("EnableAtmosOutput: IDeviceSettingsAudio unavailable");
             return Core::ERROR_NONE;
         }
 
-        // Use cached handle from LoadAudioConfig
-        _adminLock.Lock();
-        int32_t handle = hdmiPresent ? getCachedAudioPortHandle("HDMI0") : INVALID_DS_HANDLE;
-        _adminLock.Unlock();
+        // Use cached handle populated by DSHelper::LoadAllConfigs()
+        int32_t handle = hdmiPresent ? DSHelper::getCachedAudioPortHandle("HDMI0") : INVALID_DS_HANDLE;
         if (hdmiPresent && handle != INVALID_DS_HANDLE) {
             bool enabled = false;
             if (audio->IsAudioPortEnabled(handle, enabled) == Core::ERROR_NONE && enabled) {
@@ -601,10 +584,8 @@ public:
                 LOGWARN("EnableAtmosOutput: HDMI0 not enabled/connected");
             }
         } else if (!hdmiPresent) {
-            // No HDMI — enumerate ports and use the first available (fetch all handles in one lock)
-            _adminLock.Lock();
-            auto portHandles = getAudioPortHandleEntries();
-            _adminLock.Unlock();
+            // No HDMI — enumerate ports and use the first available via DSHelper
+            auto portHandles = DSHelper::getAudioPortHandleEntries();
 
             for (const auto& kv : portHandles) {
                 if (kv.second != INVALID_DS_HANDLE) {
@@ -628,34 +609,21 @@ public:
 
 protected:
     // =========================================================================
-    // DeviceSettingsClientHelper overrides — DS lifecycle
+    // DSHelper overrides — DS lifecycle
     // =========================================================================
 
     /**
      * Called when DeviceSettings plugin (re-)activates.
-     * Load VideoPort and Audio config stores, then subscribe to audio mode events.
+     * Config (VideoPort, Audio) is already loaded by DSHelper::LoadAllConfigs()
+     * before this override is called. Only notification registration is needed.
      */
     void OnDeviceSettingsActivated() override
     {
-        LOGINFO("PlayerInfo: OnDeviceSettingsActivated — loading DS config stores");
+        LOGINFO("PlayerInfo: OnDeviceSettingsActivated — registering audio notification");
 
-        // Load video port configuration via the member wrapper
-        // (acquires IDeviceSettingsVideoPort, loads config, releases internally)
-        _adminLock.Lock();
-        if (!LoadVideoPortConfig(_vpConfigStore)) {
-            LOGWARN("OnDeviceSettingsActivated: IDeviceSettingsVideoPort not available");
-        }
-        _adminLock.Unlock();
-
-        // Load audio configuration via the member wrapper, then subscribe to events
-        _adminLock.Lock();
-        if (!LoadAudioConfig(_audioConfigStore)) {
-            LOGWARN("OnDeviceSettingsActivated: IDeviceSettingsAudio not available");
-        }
-        _adminLock.Unlock();
-
-        // Register for audio mode change events — needs a separate acquire for Register()
-        auto* audio = AcquireSubInterface<Exchange::IDeviceSettingsAudio>();
+        // Register for audio mode change events.
+        // Config is already loaded by DSHelper::LoadAllConfigs() (via GetDeviceSettingConfigs).
+        auto* audio = DSHelper::AcquireSubInterface<Exchange::IDeviceSettingsAudio>();
         if (audio != nullptr) {
             audio->Register(&_dsAudioNotification);
             audio->Release();
@@ -666,16 +634,12 @@ protected:
 
     /**
      * Called when DeviceSettings plugin deactivates.
-     * Unregister notifications and clear cached config.
+     * DSHelper manages config lifecycle internally — no manual Clear() needed.
      * Do NOT call AcquireSubInterface<>() here — the link is already down.
      */
     void OnDeviceSettingsDeactivated() override
     {
-        LOGINFO("PlayerInfo: OnDeviceSettingsDeactivated — clearing DS config stores");
-        _adminLock.Lock();
-        _vpConfigStore.Clear();
-        _audioConfigStore.Clear();
-        _adminLock.Unlock();
+        LOGINFO("PlayerInfo: OnDeviceSettingsDeactivated");
     }
 
 private:
@@ -804,9 +768,8 @@ private:
         { "4096x2160", RESOLUTION_2160P   },
     };
 
-    // DS-loaded config stores are provided as protected base class members:
-    //   _vpConfigStore    (VideoPortConfigStore) from DeviceSettingsClientHelper
-    //   _audioConfigStore (AudioConfigStore)     from DeviceSettingsClientHelper
+    // DS config is managed by DSHelper; access via DSHelper::getDefaultVideoPortName(),
+    // DSHelper::getCachedVideoPortHandle(), DSHelper::getCachedAudioPortHandle(), etc.
 
     // Dolby audio mode change observer list
     std::list<Exchange::Dolby::IOutput::INotification*> _observers;
