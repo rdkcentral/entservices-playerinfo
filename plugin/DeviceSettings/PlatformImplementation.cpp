@@ -320,6 +320,7 @@ public:
         string audioPort = "HDMI0"; //default to HDMI
         try
         {
+            #if 0
             // Query DisplaySettings for the persisted user-intent HDMI_ARC0 enabled flag
             // via JSON-RPC on every call so the value is always current.
             // Called without a security token (loopback, no strict security on this platform).
@@ -341,6 +342,23 @@ public:
             {
                 audioPort = "HDMI_ARC0";
             }
+            #else
+                        /*  Check if the device has an HDMI_ARC out. If ARC is connected, then SPEAKERS and SPDIF are disabled.
+                So, check the atmos capability of the HDMI_ARC first*/
+            device::List<device::AudioOutputPort> aPorts = device::Host::getInstance().getAudioOutputPorts();
+            for (size_t i = 0; i < aPorts.size(); i++)
+            {
+                device::AudioOutputPort &aPort = aPorts.at(i);
+                LOGINFO("gsk:[%zu]aPort.getName()= %s", i, aPort.getName().c_str());
+                if(aPort.getName().find("HDMI_ARC") != std::string::npos)
+                {
+                    //the platform supports HDMI_ARC. Get the sound mode of the ARC port
+                    audioPort = "HDMI_ARC0";
+                    break;
+                }
+            }
+
+            #endif
 
             LOGINFO("AtmosMetadata: audioPort = %s", audioPort.c_str());
             device::AudioOutputPort aPort = device::Host::getInstance().getAudioOutputPort(audioPort);
