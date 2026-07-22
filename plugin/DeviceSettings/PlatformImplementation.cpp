@@ -26,6 +26,7 @@
 #include "audioOutputPortConfig.hpp"
 #include "audioOutputPort.hpp"
 #include "UtilsIarm.h"
+#include "UtilsSearchRDKProfile.h"
 
 #include <gst/gst.h>
 
@@ -320,56 +321,53 @@ public:
         string audioPort = "HDMI0"; //default to HDMI
         try
         {
-            #if 0
-            // Query DisplaySettings for the persisted user-intent HDMI_ARC0 enabled flag
-            // via JSON-RPC on every call so the value is always current.
-            // Called without a security token (loopback, no strict security on this platform).
-            bool arcEnabled = false;
-            Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), _T("127.0.0.1:9998"));
-            WPEFramework::JSONRPC::LinkType<Core::JSON::IElement> dsClient(
-                _T("org.rdk.DisplaySettings.1"), _T("org.rdk.DisplaySettings.1"), false, _T(""));
-            JsonObject params;
-            JsonObject result;
-            params["audioPort"] = "HDMI_ARC0";
-            if (dsClient.Invoke<JsonObject, JsonObject>(2000, "getEnableAudioPort", params, result) == Core::ERROR_NONE) {
-                arcEnabled = result["enable"].Boolean();
-                LOGINFO("AtmosMetadata: getEnableAudioPort(HDMI_ARC0) = %s", arcEnabled ? "true" : "false");
-            } else {
-                LOGWARN("AtmosMetadata: getEnableAudioPort JSON-RPC failed, defaulting to HDMI0");
-            }
-
-            if (arcEnabled)
+            if (TV == searchRdkProfile())
             {
-                audioPort = "HDMI_ARC0";
-            }
-            #else
-                        /*  Check if the device has an HDMI_ARC out. If ARC is connected, then SPEAKERS and SPDIF are disabled.
-                So, check the atmos capability of the HDMI_ARC first*/
-            device::List<device::AudioOutputPort> aPorts = device::Host::getInstance().getAudioOutputPorts();
-            for (size_t i = 0; i < aPorts.size(); i++)
-            {
-                device::AudioOutputPort &aPort = aPorts.at(i);
-                LOGINFO("gsk:[%zu]aPort.getName()= %s", i, aPort.getName().c_str());
-                if(aPort.getName().find("HDMI_ARC") != std::string::npos)
-                {
-                    //the platform supports HDMI_ARC. Get the sound mode of the ARC port
-                    audioPort = "HDMI_ARC0";
-                    break;
+                // TV platform: query DisplaySettings for the persisted user-intent HDMI_ARC0
+                // enabled flag. This is authoritative — do NOT rely on isConnected() (HAL
+                // returns unreliable state on some platforms).
+                bool arcEnabled = false;
+                Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), _T("127.0.0.1:9998"));
+                WPEFramework::JSONRPC::LinkType<Core::JSON::IElement> dsClient(
+                    _T("org.rdk.DisplaySettings.1"), _T("org.rdk.DisplaySettings.1"), false, _T(""));
+                JsonObject params;
+                JsonObject result;
+                params["audioPort"] = "HDMI_ARC0";
+                if (dsClient.Invoke<JsonObject, JsonObject>(2000, "getEnableAudioPort", params, result) == Core::ERROR_NONE) {
+                    arcEnabled = result["enable"].Boolean();
+                    LOGINFO("AtmosMetadata: getEnableAudioPort(HDMI_ARC0) = %s", arcEnabled ? "true" : "false");
+                } else {
+                    LOGWARN("AtmosMetadata: getEnableAudioPort JSON-RPC failed");
                 }
-            }
 
-            #endif
-
-            LOGINFO("AtmosMetadata: audioPort = %s", audioPort.c_str());
-            device::AudioOutputPort aPort = device::Host::getInstance().getAudioOutputPort(audioPort);
-            if (aPort.isConnected())
-            {
-                aPort.getSinkDeviceAtmosCapability(atmosCapability);
+                if (arcEnabled)
+                {
+                    // ARC is enabled — query HDMI_ARC0 port directly, bypassing isConnected()
+                    LOGINFO("AtmosMetadata: ARC enabled, querying HDMI_ARC0 for ATMOS capability");
+                    device::AudioOutputPort aPort = device::Host::getInstance().getAudioOutputPort("HDMI_ARC0");
+                    aPort.getSinkDeviceAtmosCapability(atmosCapability);
+                }
+                else
+                {
+                    // ARC not enabled or JSON-RPC failed — query TV panel itself
+                    LOGINFO("AtmosMetadata: ARC not enabled, querying TV panel ATMOS capability");
+                    device::Host::getInstance().getSinkDeviceAtmosCapability(atmosCapability);
+                }
             }
             else
             {
-                TRACE(Trace::Error, (_T("getSinkAtmosCapability failure: neither HDMI0 nor HDMI_ARC connected!\n")));
-                device::Host::getInstance().getSinkDeviceAtmosCapability(atmosCapability); //gets host device-sink's atmos caps (For TV panel, device Sink is itself)
+                // STB platform: audio goes through HDMI0
+                LOGINFO("AtmosMetadata: STB platform, audioPort = %s", audioPort.c_str());
+                device::AudioOutputPort aPort = device::Host::getInstance().getAudioOutputPort(audioPort);
+                if (aPort.isConnected())
+                {
+                    aPort.getSinkDeviceAtmosCapability(atmosCapability);
+                }
+                else
+                {
+                    LOGWARN("AtmosMetadata: HDMI0 not connected, using host getSinkDeviceAtmosCapability");
+                    device::Host::getInstance().getSinkDeviceAtmosCapability(atmosCapability);
+                }
             }
         }
         catch(const device::Exception& err)
