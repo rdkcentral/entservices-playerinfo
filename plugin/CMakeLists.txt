@@ -37,7 +37,6 @@ set(PLUGIN_PLAYERINFO_MODE "Off" CACHE STRING "Controls if the plugin should run
 
 find_package(${NAMESPACE}Plugins REQUIRED)
 find_package(${NAMESPACE}Definitions REQUIRED)
-find_package(${NAMESPACE}Helpers REQUIRED)
 find_package(CompileSettingsDebug CONFIG REQUIRED)
 
 add_library(${MODULE_NAME} SHARED
@@ -86,8 +85,7 @@ if (GSTREAMER_FOUND)
         target_link_libraries(${MODULE_NAME} PRIVATE
             ${NAMESPACE}Plugins::${NAMESPACE}Plugins
             ${IARMBUS_LIBRARIES}
-            ${DS_LIBRARIES}
-            ${NAMESPACE}::${NAMESPACE}Helpers)
+            ${DS_LIBRARIES})
         target_sources(${MODULE_NAME}
             PRIVATE
                 DeviceSettings/PlatformImplementation.cpp)
