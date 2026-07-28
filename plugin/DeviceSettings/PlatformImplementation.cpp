@@ -466,6 +466,53 @@ public:
         return (Core::ERROR_NONE);
     }
 
+    uint32_t SetApplicationAudioConfig(const std::string& audioConfig, const bool &enable) override
+    {
+	LOGINFO("Set %s audio configuration to enable = %d", audioConfig.c_str(), enable);
+	try
+        {
+            device::Host::getInstance().setApplicationAudioConfig(audioConfig, enable);
+        }
+        catch (const device::Exception& err)
+        {
+            TRACE(Trace::Error, (_T("Exception during DeviceSetting library call. code = %d message = %s"), err.getCode(), err.what()));
+        }
+        return (Core::ERROR_NONE);
+
+    }
+
+    uint32_t GetApplicationAudioConfig(const std::string& audioConfig, bool &enable /* @out */) const override
+    {
+	LOGINFO("Get %s audio configuration", audioConfig.c_str());
+	try
+        {
+            device::Host::getInstance().getApplicationAudioConfig(audioConfig, &enable);
+	    LOGINFO("%s audio config enabled =%d", audioConfig.c_str(), enable);
+        }
+        catch (const device::Exception& err)
+        {
+            TRACE(Trace::Error, (_T("Exception during DeviceSetting library call. code = %d message = %s"), err.getCode(), err.what()));
+        }
+        return (Core::ERROR_NONE);
+
+    }
+
+    uint32_t GetSupportedApplicationAudioConfigs(IAudioConfigListIterator*&  applicationAudioConfigs) const override
+    {
+	std::vector<std::string> configList;
+        try
+        {
+            device::Host::getInstance().getApplicationAudioConfigList(configList);
+	    for (std::vector<std::string>::iterator it = configList.begin(); it != configList.end(); it++)
+               LOGINFO("audio config = %s", it->c_str());
+        }
+        catch (const device::Exception& err)
+        {
+            TRACE(Trace::Error, (_T("Exception during DeviceSetting library call. code = %d message = %s"), err.getCode(), err.what()));
+        }
+	applicationAudioConfigs = (Core::Service<RPC::IteratorType<Exchange::Dolby::IOutput::IAudioConfigListIterator>>::Create<Exchange::Dolby::IOutput::IAudioConfigListIterator>(configList));
+        return (Core::ERROR_NONE);
+    }
     BEGIN_INTERFACE_MAP(PlayerInfoImplementation)
     INTERFACE_ENTRY(Exchange::IPlayerProperties)
     INTERFACE_ENTRY(Exchange::Dolby::IOutput)
