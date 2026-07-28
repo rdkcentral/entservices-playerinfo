@@ -7,9 +7,6 @@ on:
         description: "Specifies the source type (e.g., local or test framework) for the workflow."
         required: true
         type: string
-    secrets:
-      RDKCM_RDKE:
-        required: true
 
 env:
   BUILD_TYPE: Debug
@@ -18,6 +15,7 @@ env:
   INTERFACES_REF: "develop"
   AUTOMATICS_UNAME: ${{ secrets.AUTOMATICS_UNAME}}
   AUTOMATICS_PASSCODE: ${{ secrets. AUTOMATICS_PASSCODE}}
+  ENABLE_CACHE: "false"
 
 jobs:
   L1-tests:
@@ -41,7 +39,7 @@ jobs:
         # https://github.com/actions/cache
         # https://docs.github.com/en/rest/actions/cache
         # Modify the key if changing the list.
-        if: ${{ !env.ACT }}
+        if: ${{ !env.ACT && env.ENABLE_CACHE == 'true' }}
         id: cache
         uses: actions/cache@v3
         with:
@@ -123,8 +121,7 @@ jobs:
         with:
           repository: rdkcentral/entservices-testframework
           path: entservices-testframework
-          ref: feature/MD_test
-          token: ${{ secrets.RDKCM_RDKE }}
+          ref: 1.0.1
 
       - name: Checkout entservices-playerinfo
         if: ${{ inputs.caller_source == 'local' }}
@@ -138,7 +135,7 @@ jobs:
         with:
           repository: rdkcentral/entservices-playerinfo
           path: entservices-playerinfo
-          ref: feature/RDKEMW-13619
+          ref: develop
 
       - name: Checkout googletest
         uses: actions/checkout@v3
@@ -204,7 +201,6 @@ jobs:
           repository: rdkcentral/entservices-apis
           path: entservices-apis
           ref: ${{env.INTERFACES_REF}}
-          token : ${{ secrets.RDKCM_RDKE }}
           run: rm -rf $GITHUB_WORKSPACE/entservices-apis/jsonrpc/DTV.json
           
       - name: Build entservices-apis
