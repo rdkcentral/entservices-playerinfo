@@ -65,7 +65,7 @@
 #include <gst/gst.h>
 
 #include "DeviceSettingsInterface.h"
-#include "../../helpers/UtilsSearchRDKProfile.h"
+#include "UtilsSearchRDKProfile.h"
 
 namespace WPEFramework {
 namespace Plugin {

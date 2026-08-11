@@ -88,6 +88,9 @@ if (GSTREAMER_FOUND)
 
         target_compile_definitions(${MODULE_NAME} PRIVATE USE_DEVICESETTING_PLUGIN)
 
+        target_include_directories(${MODULE_NAME} PRIVATE
+            ../helpers)
+
         target_link_libraries(${MODULE_NAME} PRIVATE
             ${NAMESPACE}Definitions::${NAMESPACE}Definitions
             ${NAMESPACE}::${NAMESPACE}Helpers)
