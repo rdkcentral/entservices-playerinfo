@@ -65,6 +65,7 @@
 #include <gst/gst.h>
 
 #include "DeviceSettingsInterface.h"
+#include "../../helpers/UtilsSearchRDKProfile.h"
 
 namespace WPEFramework {
 namespace Plugin {
@@ -444,45 +445,73 @@ public:
         int32_t arcHandle  = DSHelper::getCachedAudioPortHandle("HDMI_ARC0");
         int32_t hdmiHandle = DSHelper::getCachedAudioPortHandle("HDMI0");
 
-        int32_t selectedHandle = INVALID_DS_HANDLE;
-        bool    arcConnected   = false;
-
-        if (arcHandle != INVALID_DS_HANDLE) {
-            // Platform supports HDMI_ARC
+        if (TV == searchRdkProfile()) {
+            // TV platform: use persisted user-intent enable state — HAL state is unreliable on some platforms
             bool arcEnabled = false;
-            audio->IsAudioPortEnabled(arcHandle, arcEnabled);
-            if (arcEnabled) {
-                selectedHandle = arcHandle;
-                arcConnected   = true;
+            if (arcHandle != INVALID_DS_HANDLE) {
+                string portName = "HDMI_ARC0";
+                audio->GetAudioEnablePersist(arcHandle, arcEnabled, portName);
+                LOGINFO("AtmosMetadata: GetAudioEnablePersist(HDMI_ARC0) = %s", arcEnabled ? "true" : "false");
             }
-        }
 
-        if (!arcConnected && hdmiHandle != INVALID_DS_HANDLE) {
-            // Fall back to HDMI
-            bool hdmiEnabled = false;
-            audio->IsAudioPortEnabled(hdmiHandle, hdmiEnabled);
-            if (hdmiEnabled) {
-                selectedHandle = hdmiHandle;
-            }
-        }
-
-        if (selectedHandle != INVALID_DS_HANDLE) {
             DolbyAtmosCapability capability = DolbyAtmosCapability::AUDIO_DOLBY_ATMOS_NOT_SUPPORTED;
-            audio->GetAudioSinkDeviceAtmosCapability(selectedHandle, capability);
+            if (arcEnabled && arcHandle != INVALID_DS_HANDLE) {
+                // ARC is enabled — query HDMI_ARC0 for ATMOS capability
+                LOGINFO("AtmosMetadata: ARC enabled, querying HDMI_ARC0 for ATMOS capability");
+                audio->GetAudioSinkDeviceAtmosCapability(arcHandle, capability);
+            } else {
+                // ARC not enabled — query HDMI0 (TV panel itself)
+                LOGINFO("AtmosMetadata: ARC not enabled, querying HDMI0 for ATMOS capability");
+                int32_t selectedHandle = (hdmiHandle != INVALID_DS_HANDLE) ? hdmiHandle
+                                       : DSHelper::getCachedAudioPortHandle("SPEAKER0");
+                if (selectedHandle != INVALID_DS_HANDLE) {
+                    audio->GetAudioSinkDeviceAtmosCapability(selectedHandle, capability);
+                } else {
+                    LOGWARN("AtmosMetadata: no HDMI_ARC (enabled), HDMI, or SPEAKER port found");
+                }
+            }
             supported = (capability == DolbyAtmosCapability::AUDIO_DOLBY_ATMOS_METADATA);
             LOGINFO("AtmosMetadata: capability=%d, supported=%s",
                     static_cast<int>(capability), supported ? "true" : "false");
         } else {
-            // Neither HDMI_ARC nor HDMI connected — fallback to SPEAKER (cached handle)
-            int32_t spkHandle = DSHelper::getCachedAudioPortHandle("SPEAKER0");
-            if (spkHandle != INVALID_DS_HANDLE) {
+            // STB platform: keep port-priority logic (HDMI_ARC > HDMI > SPEAKER)
+            int32_t selectedHandle = INVALID_DS_HANDLE;
+            bool    arcConnected   = false;
+
+            if (arcHandle != INVALID_DS_HANDLE) {
+                bool arcEnabled = false;
+                audio->IsAudioPortEnabled(arcHandle, arcEnabled);
+                if (arcEnabled) {
+                    selectedHandle = arcHandle;
+                    arcConnected   = true;
+                }
+            }
+
+            if (!arcConnected && hdmiHandle != INVALID_DS_HANDLE) {
+                bool hdmiEnabled = false;
+                audio->IsAudioPortEnabled(hdmiHandle, hdmiEnabled);
+                if (hdmiEnabled) {
+                    selectedHandle = hdmiHandle;
+                }
+            }
+
+            if (selectedHandle != INVALID_DS_HANDLE) {
                 DolbyAtmosCapability capability = DolbyAtmosCapability::AUDIO_DOLBY_ATMOS_NOT_SUPPORTED;
-                audio->GetAudioSinkDeviceAtmosCapability(spkHandle, capability);
+                audio->GetAudioSinkDeviceAtmosCapability(selectedHandle, capability);
                 supported = (capability == DolbyAtmosCapability::AUDIO_DOLBY_ATMOS_METADATA);
-                LOGINFO("AtmosMetadata (SPEAKER fallback): capability=%d, supported=%s",
+                LOGINFO("AtmosMetadata: capability=%d, supported=%s",
                         static_cast<int>(capability), supported ? "true" : "false");
             } else {
-                LOGWARN("AtmosMetadata: no connected HDMI_ARC, HDMI, or SPEAKER port found");
+                int32_t spkHandle = DSHelper::getCachedAudioPortHandle("SPEAKER0");
+                if (spkHandle != INVALID_DS_HANDLE) {
+                    DolbyAtmosCapability capability = DolbyAtmosCapability::AUDIO_DOLBY_ATMOS_NOT_SUPPORTED;
+                    audio->GetAudioSinkDeviceAtmosCapability(spkHandle, capability);
+                    supported = (capability == DolbyAtmosCapability::AUDIO_DOLBY_ATMOS_METADATA);
+                    LOGINFO("AtmosMetadata (SPEAKER fallback): capability=%d, supported=%s",
+                            static_cast<int>(capability), supported ? "true" : "false");
+                } else {
+                    LOGWARN("AtmosMetadata: no connected HDMI_ARC, HDMI, or SPEAKER port found");
+                }
             }
         }
 
