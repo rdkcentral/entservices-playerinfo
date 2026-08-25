@@ -559,9 +559,14 @@ public:
                     continue;
                 }
 
+                // Mirrors isEnabled(): skip only when the HAL explicitly reports the port as disabled.
                 bool enabled = false;
-                audio->IsAudioPortEnabled(handle, enabled);
-                if (!enabled) continue;
+                if (audio->IsAudioPortEnabled(handle, enabled) == Core::ERROR_NONE && !enabled) continue;
+
+                // Mirrors isConnected(): HDMI→display connected, ARC→HDMI-In connected, others→always true.
+                int32_t connHandle = INVALID_DS_HANDLE;
+                if (!const_cast<PlayerInfoImplementation*>(this)->DSHelper::isAudioOutputPortConnected(
+                        audio, entries[ei].name, connHandle)) continue;
 
                 StereoMode stereoMode = StereoMode::AUDIO_STEREO_UNKNOWN;
                 if (audio->GetStereoMode(handle, stereoMode) == Core::ERROR_NONE) {
