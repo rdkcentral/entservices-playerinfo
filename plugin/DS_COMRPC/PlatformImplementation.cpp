@@ -659,7 +659,7 @@ protected:
         // Config is already loaded by DSHelper::LoadAllConfigs() (via GetDeviceSettingConfigs).
         auto* audio = DSHelper::AcquireSubInterface<Exchange::IDeviceSettingsAudio>();
         if (audio != nullptr) {
-            audio->Register(&_dsAudioNotification);
+            audio->Register("PlayerInfo", &_dsAudioNotification);
             audio->Release();
         } else {
             LOGWARN("OnDeviceSettingsActivated: IDeviceSettingsAudio not available for Register");
