@@ -569,7 +569,7 @@ public:
                         audio, entries[ei].name, connHandle)) continue;
 
                 StereoMode stereoMode = StereoMode::AUDIO_STEREO_UNKNOWN;
-                if (audio->GetStereoMode(handle, stereoMode) == Core::ERROR_NONE) {
+                if (audio->GetStereoMode(handle, stereoMode, false) == Core::ERROR_NONE) {
                     mode = DsAudioModeToSoundMode(stereoMode);
 
                     // Auto mode for HDMI_ARC and SPDIF (pass-through detection)
