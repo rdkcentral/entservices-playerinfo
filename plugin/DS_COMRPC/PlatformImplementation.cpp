@@ -224,7 +224,7 @@ public:
     {
         // Opens link to DeviceSettings plugin.
         // If DS is already active, OnDeviceSettingsActivated() is called immediately.
-        const uint32_t result = DSHelper::Open(service);
+        const uint32_t result = DSHelper::Open(service, "PlayerInfo");
         if (result != Core::ERROR_NONE) {
             LOGERR("Configure: Failed to open DeviceSettings link (result=%u)", result);
         }
