@@ -19,7 +19,7 @@
 
 #include "PlayerInfo.h"
 
-#ifdef USE_DEVICESETTING_PLUGIN
+#ifdef USE_DEVICESETTINGS
 #include <interfaces/IConfiguration.h>
 #endif
 
@@ -71,7 +71,7 @@ namespace Plugin {
         _player = service->Root<Exchange::IPlayerProperties>(_connectionId, 2000, _T("PlayerInfoImplementation"));
         if (_player != nullptr) {
 
-#ifdef USE_DEVICESETTING_PLUGIN
+#ifdef USE_DEVICESETTINGS
             // Provide the IShell* to PlayerInfoImplementation so it can connect
             // to the DeviceSettings COM-RPC plugin via DeviceSettingsClientHelper::Open().
             {

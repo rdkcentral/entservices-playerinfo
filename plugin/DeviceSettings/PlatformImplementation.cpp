@@ -18,41 +18,10 @@
  */
 
 /*
- * PlayerInfoImplementation — DS COM-RPC variant
+ * PlayerInfoImplementation — DeviceSettings variant.
  *
- * Compiled when USE_DEVICESETTING_PLUGIN=ON.
- * Replaces DeviceSettings/PlatformImplementation.cpp (which links libds + IARM).
- *
- * libds / IARM / device:: headers are NOT included here.
  * DS queries go through the entservices-devicesettings COM-RPC plugin using
  * DSHelper::AcquireSubInterface<T>().
- *
- * Mapping: old libds call → new DS COM-RPC call
- *  Resolution()
- *    device::Host::getDefaultVideoPortName()
- *    vPort.getResolution().getName()
- *    → IDeviceSettingsVideoPort::GetVideoPort(type, index, handle)
- *      + GetVideoPortResolution(handle, vpRes) → vpRes.name
- *
- *  IsAudioEquivalenceEnabled()
- *    device::Host::isHDMIOutPortPresent()   → AudioConfigStore::IsHDMIOutPortPresent()
- *    aPort.GetLEConfig()                    → IDeviceSettingsAudio::GetAudioLEConfig(handle)
- *
- *  AtmosMetadata()
- *    iterate aPorts for "HDMI_ARC"          → GetAudioPort(AUDIO_PORT_TYPE_HDMIARC, 0)
- *    aPort.getSinkDeviceAtmosCapability()   → GetAudioSinkDeviceAtmosCapability(handle, cap)
- *
- *  SoundMode()
- *    iterate all ports by priority          → AudioConfigStore entries
- *    aPort.getStereoMode()                  → GetStereoMode(handle, mode)
- *    aPort.getStereoAuto()                  → GetStereoAuto(handle, auto)
- *
- *  EnableAtmosOutput(enable)
- *    device::Host::isHDMIOutPortPresent()   → AudioConfigStore::IsHDMIOutPortPresent()
- *    aPort.setAudioAtmosOutputMode(enable)  → SetAudioAtmosOutputMode(handle, enable)
- *
- *  OnAudioModeEvent HAL callback
- *    device::Host::IAudioOutputPortEvents   → IDeviceSettingsAudio::INotification::OnAudioModeEvent
  */
 
 #include "../Module.h"
