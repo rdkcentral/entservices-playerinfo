@@ -76,19 +76,21 @@ if (GSTREAMER_FOUND)
            ${GSTREAMER_INCLUDES})
 
     if (USE_DEVICESETTINGS)
-        find_package(DS REQUIRED)
-        find_package(IARMBus REQUIRED)
+        # DeviceSettings queried over COM-RPC from entservices-devicesettings.
+        find_package(${NAMESPACE}Helpers REQUIRED)
+
+        target_compile_definitions(${MODULE_NAME} PRIVATE USE_DEVICESETTINGS)
+
         target_include_directories(${MODULE_NAME} PRIVATE
-            ${IARMBUS_INCLUDE_DIRS}
-            ${DS_INCLUDE_DIRS}
             ../helpers)
+
         target_link_libraries(${MODULE_NAME} PRIVATE
-            ${NAMESPACE}Plugins::${NAMESPACE}Plugins
-            ${IARMBUS_LIBRARIES}
-            ${DS_LIBRARIES})
+            ${NAMESPACE}::${NAMESPACE}Helpers)
+
         target_sources(${MODULE_NAME}
             PRIVATE
                 DeviceSettings/PlatformImplementation.cpp)
+
     else ()
         target_sources(${MODULE_NAME}
             PRIVATE
