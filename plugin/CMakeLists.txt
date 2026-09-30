@@ -75,45 +75,19 @@ if (GSTREAMER_FOUND)
         PRIVATE
            ${GSTREAMER_INCLUDES})
 
-    if (USE_DEVICESETTINGS)
-        find_package(DS REQUIRED)
-        find_package(IARMBus REQUIRED)
-        target_include_directories(${MODULE_NAME} PRIVATE
-            ${IARMBUS_INCLUDE_DIRS}
-            ${DS_INCLUDE_DIRS}
-            ../helpers)
-        target_link_libraries(${MODULE_NAME} PRIVATE
-            ${NAMESPACE}Plugins::${NAMESPACE}Plugins
-            ${IARMBUS_LIBRARIES}
-            ${DS_LIBRARIES})
-        target_sources(${MODULE_NAME}
-            PRIVATE
-                DeviceSettings/PlatformImplementation.cpp)
-    else ()
-        target_sources(${MODULE_NAME}
-            PRIVATE
-                GStreamer/PlatformImplementation.cpp)
+    # DeviceSettings queried over COM-RPC from entservices-devicesettings.
+    find_package(${NAMESPACE}Helpers REQUIRED)
 
-        if (DOLBY_SUPPORT)
-            target_sources(${MODULE_NAME}
-                PRIVATE
-                    ${CMAKE_CURRENT_LIST_DIR}/Dolby/DolbyOutput.cpp)
+    target_include_directories(${MODULE_NAME} PRIVATE
+        ../helpers)
 
-            target_include_directories(${MODULE_NAME}
-                PRIVATE
-                    ${CMAKE_CURRENT_LIST_DIR}/Dolby/include)
+    target_link_libraries(${MODULE_NAME} PRIVATE
+        ${NAMESPACE}::${NAMESPACE}Helpers)
 
-            target_compile_definitions(${MODULE_NAME}
-                PRIVATE
-                    DOLBY_SUPPORT=1)
+    target_sources(${MODULE_NAME}
+        PRIVATE
+            DeviceSettings/PlatformImplementation.cpp)
 
-            add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/Dolby)
-
-            target_link_libraries(${MODULE_NAME}
-                PRIVATE
-                    PlayerInfoDolby)
-        endif()
-    endif ()
 endif ()
 
 install(TARGETS ${MODULE_NAME}

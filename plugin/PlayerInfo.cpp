@@ -19,6 +19,8 @@
 
 #include "PlayerInfo.h"
 
+#include <interfaces/IConfiguration.h>
+
 #define API_VERSION_NUMBER_MAJOR 1
 #define API_VERSION_NUMBER_MINOR 0
 #define API_VERSION_NUMBER_PATCH 8
@@ -66,6 +68,19 @@ namespace Plugin {
 
         _player = service->Root<Exchange::IPlayerProperties>(_connectionId, 2000, _T("PlayerInfoImplementation"));
         if (_player != nullptr) {
+
+            // Provide the IShell* to PlayerInfoImplementation so it can connect
+            // to the DeviceSettings COM-RPC plugin via DeviceSettingsClientHelper::Open().
+            {
+                Exchange::IConfiguration* config =
+                    _player->QueryInterface<Exchange::IConfiguration>();
+                if (config != nullptr) {
+                    config->Configure(service);
+                    config->Release();
+                } else {
+                    SYSLOG(Logging::Error, (_T("PlayerInfo::Initialize: IConfiguration not implemented by PlayerInfoImplementation")));
+                }
+            }
 
             if ((_player->AudioCodecs(_audioCodecs) == Core::ERROR_NONE) && (_audioCodecs != nullptr)) {
 
