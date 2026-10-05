@@ -59,6 +59,10 @@ cd ..
 
 git clone --branch main https://github.com/rdkcentral/entservices-apis.git
 
+cd ..
+git clone --branch develop https://github.com/rdkcentral/entservices-helpers.git
+cd "$GITHUB_WORKSPACE"
+
 git clone --branch 2.0.0 https://github.com/rdkcentral/entservices-testframework.git
 
 ############################
@@ -134,5 +138,22 @@ touch rdk/iarmbus/libIBusDaemon.h
 touch rdk/iarmmgrs-hal/mfrMgr.h
 touch rdk/iarmmgrs-hal/sysMgr.h
 echo "======================================================================================"
+
+cd $GITHUB_WORKSPACE
+#############################
+# Build entservices-helpers (provides WPEFrameworkHelpers / DSHelper, required by
+# plugin/CMakeLists.txt's find_package(${NAMESPACE}Helpers REQUIRED))
+echo "======================================================================================"
+echo "building entservices-helpers"
+cmake -G Ninja -S ../entservices-helpers -B build/entservices-helpers \
+    -DEXCEPTIONS_ENABLE=ON \
+    -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/install/usr" \
+    -DCMAKE_MODULE_PATH="$GITHUB_WORKSPACE/install/tools/cmake" \
+    -DUSE_THUNDER_R4=ON \
+    -DHIDE_NON_EXTERNAL_SYMBOLS=OFF \
+    -DPLUGIN_HELPERS=ON \
+    "-DCMAKE_CXX_FLAGS=-I$GITHUB_WORKSPACE/entservices-testframework/Tests/mocks -I$GITHUB_WORKSPACE/entservices-testframework/Tests/headers -I$GITHUB_WORKSPACE/entservices-testframework/Tests/headers/rdk/iarmbus -include $GITHUB_WORKSPACE/entservices-testframework/Tests/mocks/Iarm.h "
+
+cmake --build build/entservices-helpers --target install
 
 ls -la ${GITHUB_WORKSPACE}
