@@ -264,9 +264,15 @@ namespace Plugin {
         Core::JSON::ArrayType<Core::JSON::EnumType<JsonData::PlayerInfo::CodecsData::AudiocodecsType>>::Iterator audioIter = codecsData.Audio.Elements();
         int codecCount = 0;
         while (audioIter.Next()) {
-            codecCount++;
             // Convert enum value to string representation
             string codecName = audioIter.Current().Data();
+            // Enum values with no registered @text (e.g. not yet wired into the JSON
+            // enum table) convert to an empty string - drop those instead of exposing them.
+            if (codecName.empty()) {
+                std::cout << "get_audiocodecs - skipping codec with empty name (enum=" << static_cast<int>(audioIter.Current().Value()) << ")" << std::endl;
+                continue;
+            }
+            codecCount++;
             audioCodecsArray.Add(codecName);
         }
         
@@ -302,8 +308,14 @@ namespace Plugin {
         Core::JSON::ArrayType<Core::JSON::EnumType<JsonData::PlayerInfo::CodecsData::VideocodecsType>>::Iterator videoIter = codecsData.Video.Elements();
         int codecCount = 0;
         while (videoIter.Next()) {
-            codecCount++;
             string codecName = videoIter.Current().Data();
+            // Enum values with no registered @text (e.g. not yet wired into the JSON
+            // enum table) convert to an empty string - drop those instead of exposing them.
+            if (codecName.empty()) {
+                std::cout << "get_videocodecs - skipping codec with empty name (enum=" << static_cast<int>(videoIter.Current().Value()) << ")" << std::endl;
+                continue;
+            }
+            codecCount++;
             videoCodecsArray.Add(codecName);
         }
         response.Clear();
