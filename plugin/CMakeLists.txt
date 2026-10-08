@@ -74,22 +74,20 @@ if (GSTREAMER_FOUND)
     target_include_directories(${MODULE_NAME}
         PRIVATE
            ${GSTREAMER_INCLUDES})
-
     if (USE_DEVICESETTINGS)
-        find_package(DS REQUIRED)
-        find_package(IARMBus REQUIRED)
+        # DeviceSettings queried over COM-RPC from entservices-devicesettings.
+        find_package(${NAMESPACE}Helpers REQUIRED)
+
         target_include_directories(${MODULE_NAME} PRIVATE
-            ${IARMBUS_INCLUDE_DIRS}
-            ${DS_INCLUDE_DIRS}
             ../helpers)
+
         target_link_libraries(${MODULE_NAME} PRIVATE
-            ${NAMESPACE}Plugins::${NAMESPACE}Plugins
-            ${IARMBUS_LIBRARIES}
-            ${DS_LIBRARIES})
+            ${NAMESPACE}::${NAMESPACE}Helpers)
+
         target_sources(${MODULE_NAME}
             PRIVATE
                 DeviceSettings/PlatformImplementation.cpp)
-    else ()
+    else()
         target_sources(${MODULE_NAME}
             PRIVATE
                 GStreamer/PlatformImplementation.cpp)
@@ -113,7 +111,8 @@ if (GSTREAMER_FOUND)
                 PRIVATE
                     PlayerInfoDolby)
         endif()
-    endif ()
+    endif() # USE_DEVICESETTINGS
+
 endif ()
 
 install(TARGETS ${MODULE_NAME}

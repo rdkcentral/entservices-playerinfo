@@ -115,7 +115,14 @@ jobs:
         with:
           repository: rdkcentral/entservices-testframework
           path: entservices-testframework
-          ref: 2.0.0
+          ref: 2.1.0
+
+      - name: Checkout rdk-halif-device_settings
+        uses: actions/checkout@v3
+        with:
+          repository: rdkcentral/rdk-halif-device_settings
+          path: rdk-halif-device_settings
+          ref: 6.0.1
 
       - name: Checkout googletest
         if: steps.cache.outputs.cache-hit != 'true'
@@ -254,7 +261,6 @@ jobs:
           tvTypesODM.h
           tr181api.h
           list.hpp
-          dsDisplay.h
           rdk/ds/AudioStereoMode.hpp
           rdk/ds/VideoDFC.hpp
           dsRpc.h
@@ -286,6 +292,52 @@ jobs:
           cmake --build build/googletest -j8
           &&
           cmake --install build/googletest
+
+      - name: Copy DeviceSettings HAL headers
+        run: >
+          mkdir -p "$GITHUB_WORKSPACE/install/usr/include"
+          &&
+          cp -r "$GITHUB_WORKSPACE/rdk-halif-device_settings/include/." "$GITHUB_WORKSPACE/install/usr/include/"
+
+      - name: Build ds-hal stub
+        run: >
+          cmake
+          -S "$GITHUB_WORKSPACE/entservices-testframework/Tests/mocks/devicesettings"
+          -B build/ds-hal
+          -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/install/usr"
+          -DCMAKE_CXX_FLAGS="-I $GITHUB_WORKSPACE/install/usr/include"
+          &&
+          cmake --build build/ds-hal -j8
+          &&
+          cmake --install build/ds-hal
+
+      - name: Checkout entservices-helpers
+        uses: actions/checkout@v3
+        with:
+          repository: rdkcentral/entservices-helpers
+          path: entservices-helpers
+          ref: develop
+
+      - name: Build entservices-helpers
+        run: >
+          cmake -G Ninja
+          -S "$GITHUB_WORKSPACE/entservices-helpers"
+          -B build/entservices-helpers
+          -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/install/usr"
+          -DCMAKE_MODULE_PATH="$GITHUB_WORKSPACE/install/tools/cmake"
+          -DUSE_THUNDER_R4=ON
+          -DHIDE_NON_EXTERNAL_SYMBOLS=OFF
+          -DPLUGIN_HELPERS=ON
+          "-DCMAKE_CXX_FLAGS=
+          -I$GITHUB_WORKSPACE/entservices-testframework/Tests/headers
+          -I$GITHUB_WORKSPACE/entservices-testframework/Tests/headers/rdk/iarmbus
+          -I$GITHUB_WORKSPACE/entservices-testframework/Tests/mocks
+          -include $GITHUB_WORKSPACE/entservices-testframework/Tests/mocks/tr181api.h
+          -include $GITHUB_WORKSPACE/entservices-testframework/Tests/mocks/Iarm.h"
+          &&
+          cmake --build build/entservices-helpers
+          &&
+          cmake --install build/entservices-helpers
 
       - name: Build mocks
         run: >
@@ -334,7 +386,6 @@ jobs:
           -I $GITHUB_WORKSPACE/entservices-testframework/Tests/headers/systemservices/proc
           -I $GITHUB_WORKSPACE/install/usr/include
           -I $GITHUB_WORKSPACE/install/usr/include/WPEFramework
-          -include $GITHUB_WORKSPACE/entservices-testframework/Tests/mocks/devicesettings.h
           -include $GITHUB_WORKSPACE/entservices-testframework/Tests/mocks/Iarm.h
           -include $GITHUB_WORKSPACE/entservices-testframework/Tests/mocks/Rfc.h
           -include $GITHUB_WORKSPACE/entservices-testframework/Tests/mocks/RBus.h
@@ -414,7 +465,6 @@ jobs:
           -I $GITHUB_WORKSPACE/install/usr/include
           -I $GITHUB_WORKSPACE/install/usr/include/WPEFramework
           -I ./usr/include/libdrm
-          -include $GITHUB_WORKSPACE/entservices-testframework/Tests/mocks/devicesettings.h
           -include $GITHUB_WORKSPACE/entservices-testframework/Tests/mocks/Iarm.h
           -include $GITHUB_WORKSPACE/entservices-testframework/Tests/mocks/Rfc.h
           -include $GITHUB_WORKSPACE/entservices-testframework/Tests/mocks/RBus.h
