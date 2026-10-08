@@ -71,9 +71,6 @@ namespace Plugin {
         _player = service->Root<Exchange::IPlayerProperties>(_connectionId, 2000, _T("PlayerInfoImplementation"));
         if (_player != nullptr) {
 
-#ifdef USE_DEVICESETTINGS
-            // Provide the IShell* to PlayerInfoImplementation so it can connect
-            // to the DeviceSettings COM-RPC plugin via DeviceSettingsClientHelper::Open().
             {
                 Exchange::IConfiguration* config =
                     _player->QueryInterface<Exchange::IConfiguration>();
@@ -84,7 +81,6 @@ namespace Plugin {
                     SYSLOG(Logging::Error, (_T("PlayerInfo::Initialize: IConfiguration not implemented by PlayerInfoImplementation")));
                 }
             }
-#endif
 
             if ((_player->AudioCodecs(_audioCodecs) == Core::ERROR_NONE) && (_audioCodecs != nullptr)) {
 
