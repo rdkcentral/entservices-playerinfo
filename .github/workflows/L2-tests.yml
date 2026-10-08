@@ -261,7 +261,6 @@ jobs:
           tvTypesODM.h
           tr181api.h
           list.hpp
-          dsDisplay.h
           rdk/ds/AudioStereoMode.hpp
           rdk/ds/VideoDFC.hpp
           dsRpc.h
