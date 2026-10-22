@@ -2,7 +2,7 @@
 
 ## Overview
 
-The PlayerInfo plugin is a Thunder (WPEFramework) plugin that provides comprehensive information about the media playback capabilities of a device. It exposes codec information, audio/video properties, and Dolby audio features through a JSON-RPC interface, enabling applications to query device capabilities before attempting media playback.
+The PlayerInfo plugin is a Thunder plugin that provides comprehensive information about the media playback capabilities of a device. It exposes codec information, audio/video properties, and Dolby audio features through a JSON-RPC interface, enabling applications to query device capabilities before attempting media playback.
 
 ## System Architecture
 
@@ -10,8 +10,8 @@ The PlayerInfo plugin is a Thunder (WPEFramework) plugin that provides comprehen
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│              Thunder Framework (WPEFramework)            │
-│                   Plugin Host Environment                │
+│              Thunder Framework                          │
+│            Plugin Host Environment                      │
 └──────────────────┬──────────────────────────────────────┘
                    │
          ┌─────────▼──────────┐
@@ -121,7 +121,7 @@ Registered Clients Notified
 ## Key Dependencies
 
 ### Build-Time Dependencies
-- **Thunder (WPEFramework)**: Core plugin framework (v4.4+)
+- **Thunder**: Core plugin framework (v4.4+)
 - **Thunder Interfaces**: Exchange interface definitions
 - **GStreamer**: Multimedia framework (optional, for GStreamer impl)
 - **Device Settings (DS)**: RDK HAL library (optional, for DS impl)

@@ -23,7 +23,7 @@
 #define API_VERSION_NUMBER_MINOR 0
 #define API_VERSION_NUMBER_PATCH 8
 
-namespace WPEFramework {
+namespace Thunder {
 
 namespace {
 
@@ -255,7 +255,7 @@ namespace Plugin {
             audioCodecsArray.Add(codecName);
         }
         
-        // Since WPEFramework JsonObject can't directly be an array, 
+        // Since Thunder JsonObject can't directly be an array, 
         // let's put the array in a standard property
         response.Clear();
         
@@ -312,4 +312,4 @@ namespace Plugin {
         }
     }
 } // namespace Plugin
-} // namespace WPEFramework
+} // namespace Thunder

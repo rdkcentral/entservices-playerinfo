@@ -35,7 +35,7 @@
 
 #include "manager.hpp"
 
-namespace WPEFramework {
+namespace Thunder {
 namespace Plugin {
 
 class PlayerInfoImplementation : public Exchange::IPlayerProperties, public Exchange::Dolby::IOutput, public device::Host::IAudioOutputPortEvents
@@ -328,7 +328,7 @@ public:
                 // returns unreliable state on some platforms).
                 bool arcEnabled = false;
                 Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), _T("127.0.0.1:9998"));
-                WPEFramework::JSONRPC::LinkType<Core::JSON::IElement> dsClient(
+                Thunder::JSONRPC::LinkType<Core::JSON::IElement> dsClient(
                     _T("org.rdk.DisplaySettings.1"), _T("org.rdk.DisplaySettings.1"), false, _T(""));
                 JsonObject params;
                 JsonObject result;

@@ -25,8 +25,8 @@
 #include "FactoriesImplementation.h"
 #include "PlayerInfoMock.h"
 
-using namespace WPEFramework;
-using namespace WPEFramework::Plugin;
+using namespace Thunder;
+using namespace Thunder::Plugin;
 using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::_;

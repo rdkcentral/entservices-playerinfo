@@ -30,8 +30,8 @@
 #define PLAYERINFO_CALLSIGN _T("PlayerInfo")
 #define PLAYERINFOL2TEST_CALLSIGN _T("L2tests.1")
 
-using namespace WPEFramework;
-using namespace WPEFramework::Exchange;
+using namespace Thunder;
+using namespace Thunder::Exchange;
 using ::testing::NiceMock;
 
 // ------------------------------------------------------------
