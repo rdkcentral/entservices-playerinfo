@@ -29,6 +29,8 @@ if(NOT Thunder_FOUND)
     add_compile_definitions(Thunder=WPEFramework)
 endif()
 
+set(PLUGIN_PLAYERINFO_AUTOSTART "false" CACHE STRING "Automatically start playerinfo plugin")
+
 # All packages that did not deliver a CMake Find script (and some deprecated scripts that need to be removed)
 # are located in the cmake directory. Include it in the search.
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/")
