@@ -455,7 +455,7 @@ public:
         else
         {
             // STB platform: audio goes through HDMI0
-            LOGINFO("AtmosMetadata: STB platform, audioPort = %s", audioPort.c_str());
+            LOGINFO("AtmosMetadata: STB platform");
             // STB platform: keep port-priority logic (HDMI_ARC > HDMI > SPEAKER)
             int32_t selectedHandle = INVALID_DS_HANDLE;
             bool    arcConnected   = false;
