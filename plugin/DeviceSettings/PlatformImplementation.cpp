@@ -414,13 +414,23 @@ public:
         int32_t arcHandle  = DSHelper::getCachedAudioPortHandle("HDMI_ARC0");
         int32_t hdmiHandle = DSHelper::getCachedAudioPortHandle("HDMI0");
 
-        if (TV == searchRdkProfile()) {
-            // TV platform: use persisted user-intent enable state — HAL state is unreliable on some platforms
+        if (TV == searchRdkProfile())
+        {
+            // TV platform: query DisplaySettings for the persisted user-intent HDMI_ARC0
+            // enabled flag. This is authoritative — do NOT rely on isConnected() (HAL
+            // returns unreliable state on some platforms).
             bool arcEnabled = false;
-            if (arcHandle != INVALID_DS_HANDLE) {
-                string portName = "HDMI_ARC0";
-                audio->GetAudioEnablePersist(arcHandle, arcEnabled, portName);
-                LOGINFO("AtmosMetadata: GetAudioEnablePersist(HDMI_ARC0) = %s", arcEnabled ? "true" : "false");
+            Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), _T("127.0.0.1:9998"));
+            WPEFramework::JSONRPC::LinkType<Core::JSON::IElement> dsClient(
+                _T("org.rdk.DisplaySettings.1"), _T("org.rdk.DisplaySettings.1"), false, _T(""));
+            JsonObject params;
+            JsonObject result;
+            params["audioPort"] = "HDMI_ARC0";
+            if (dsClient.Invoke<JsonObject, JsonObject>(2000, "getEnableAudioPort", params, result) == Core::ERROR_NONE) {
+                arcEnabled = result["enable"].Boolean();
+                LOGINFO("AtmosMetadata: getEnableAudioPort(HDMI_ARC0) = %s", arcEnabled ? "true" : "false");
+            } else {
+                LOGWARN("AtmosMetadata: getEnableAudioPort JSON-RPC failed");
             }
 
             DolbyAtmosCapability capability = DolbyAtmosCapability::AUDIO_DOLBY_ATMOS_NOT_SUPPORTED;
@@ -440,9 +450,12 @@ public:
                 }
             }
             supported = (capability == DolbyAtmosCapability::AUDIO_DOLBY_ATMOS_METADATA);
-            LOGINFO("AtmosMetadata: capability=%d, supported=%s",
-                    static_cast<int>(capability), supported ? "true" : "false");
-        } else {
+            LOGINFO("AtmosMetadata: capability=%d, supported=%s", static_cast<int>(capability), supported ? "true" : "false");
+        }
+        else
+        {
+            // STB platform: audio goes through HDMI0
+            LOGINFO("AtmosMetadata: STB platform, audioPort = %s", audioPort.c_str());
             // STB platform: keep port-priority logic (HDMI_ARC > HDMI > SPEAKER)
             int32_t selectedHandle = INVALID_DS_HANDLE;
             bool    arcConnected   = false;
@@ -470,7 +483,8 @@ public:
                 supported = (capability == DolbyAtmosCapability::AUDIO_DOLBY_ATMOS_METADATA);
                 LOGINFO("AtmosMetadata: capability=%d, supported=%s",
                         static_cast<int>(capability), supported ? "true" : "false");
-            } else {
+            }
+            else {
                 int32_t spkHandle = DSHelper::getCachedAudioPortHandle("SPEAKER0");
                 if (spkHandle != INVALID_DS_HANDLE) {
                     DolbyAtmosCapability capability = DolbyAtmosCapability::AUDIO_DOLBY_ATMOS_NOT_SUPPORTED;
@@ -478,12 +492,12 @@ public:
                     supported = (capability == DolbyAtmosCapability::AUDIO_DOLBY_ATMOS_METADATA);
                     LOGINFO("AtmosMetadata (SPEAKER fallback): capability=%d, supported=%s",
                             static_cast<int>(capability), supported ? "true" : "false");
-                } else {
+                }
+                else {
                     LOGWARN("AtmosMetadata: no connected HDMI_ARC, HDMI, or SPEAKER port found");
                 }
             }
         }
-
         audio->Release();
         return Core::ERROR_NONE;
     }
