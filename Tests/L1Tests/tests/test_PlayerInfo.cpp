@@ -24,6 +24,7 @@
 #include "COMLinkMock.h"
 #include "FactoriesImplementation.h"
 #include "PlayerInfoMock.h"
+#include "WorkerPoolImplementation.h"
 
 using namespace WPEFramework;
 using namespace WPEFramework::Plugin;
@@ -78,12 +79,20 @@ protected:
     NiceMock<ServiceMock>* mockService;
     NiceMock<MockRemoteConnection>* mockConnection;
     NiceMock<FactoriesImplementation> factoriesImplementation;
+    Core::ProxyType<WorkerPoolImplementation> workerPool;
 
     void SetUp() override {
         PluginHost::IFactories::Assign(&factoriesImplementation);
         plugin = new TestablePlayerInfo();
         mockService = new NiceMock<ServiceMock>();
         mockConnection = new NiceMock<MockRemoteConnection>();
+        // PlayerInfoImplementation::Configure() -> DSHelper::Open() activates
+        // "org.rdk.DeviceSettings" via Core::IWorkerPool::Instance(), which asserts/crashes
+        // without an assigned pool, even when the plugin is never actually reachable.
+        workerPool = Core::ProxyType<WorkerPoolImplementation>::Create(
+            2, Core::Thread::DefaultStackSize(), 16);
+        Core::IWorkerPool::Assign(&(*workerPool));
+        workerPool->Run();
     }
     void TearDown() override {
         if (plugin->isInitialized()) {
@@ -93,6 +102,8 @@ protected:
         delete mockService;
         delete plugin;
         PluginHost::IFactories::Assign(nullptr);
+        Core::IWorkerPool::Assign(nullptr);
+        workerPool.Release();
     }
 };
 TEST_F(PlayerInfoTest, InstanceShouldBeCreated) {
