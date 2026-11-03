@@ -242,7 +242,7 @@ public:
             // Use cached handle populated by DSHelper::LoadAllConfigs()
             int32_t handle = DSHelper::getCachedVideoPortHandle(defaultPortName);
             if (handle != INVALID_DS_HANDLE) {
-                if (vp->GetVideoPortResolution(handle, vpRes) == Core::ERROR_NONE) {
+                if (vp->GetVideoPortResolution(handle, vpRes, false) == Core::ERROR_NONE) {
                     currentResolution = vpRes.name;
                     vpResValid = true;
                     LOGINFO("Resolution: name='%s' pixelRes=%d frameRate=%d interlaced=%s",
