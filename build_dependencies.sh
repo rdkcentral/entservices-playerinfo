@@ -135,4 +135,18 @@ touch rdk/iarmmgrs-hal/mfrMgr.h
 touch rdk/iarmmgrs-hal/sysMgr.h
 echo "======================================================================================"
 
+#############################
+# Build entservices-helpers
+echo "======================================================================================"
+echo "building entservices-helpers"
+cd $GITHUB_WORKSPACE
+git clone --branch develop https://github.com/rdkcentral/entservices-helpers.git
+cmake -G Ninja -S entservices-helpers -B build/entservices-helpers \
+    -DEXCEPTIONS_ENABLE=ON \
+    -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/install/usr" \
+    -DCMAKE_MODULE_PATH="$GITHUB_WORKSPACE/install/tools/cmake" \
+    "-DCMAKE_CXX_FLAGS=-I$GITHUB_WORKSPACE/entservices-testframework/Tests/mocks -I$GITHUB_WORKSPACE/entservices-testframework/Tests/headers -I$GITHUB_WORKSPACE/entservices-testframework/Tests/headers/rdk/iarmbus -include $GITHUB_WORKSPACE/entservices-testframework/Tests/mocks/Iarm.h "
+
+cmake --build build/entservices-helpers --target install
+
 ls -la ${GITHUB_WORKSPACE}
