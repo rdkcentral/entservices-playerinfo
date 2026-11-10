@@ -21,19 +21,9 @@
 
 add_definitions (-DUSE_SOUND_PLAYER)
 
-add_definitions (-DUSE_IARM)
-option(USE_IARM "USE_IARM" ON)
-
-add_definitions (-DUSE_IARM_BUS)
-option(USE_IARM_BUS "USE_IARM_BUS" ON)
-
-add_definitions (-DUSE_IARMBUS)
-
 add_definitions (-DUSE_TR_69)
 
 add_definitions (-DHAS_API_SYSTEM)
-
-add_definitions (-DUSE_DS)
 
 option(PLUGIN_TELEMETRY "PLUGIN_TELEMETRY" ON)
 option(PLUGIN_CONTINUEWATCHING "PLUGIN_CONTINUEWATCHING" ON)
@@ -52,8 +42,6 @@ if (BUILD_DBUS)
 
     add_definitions (-DBUILD_DBUS)
     option(BUILD_DBUS "BUILD_DBUS" ON)
-    add_definitions (-DIARM_USE_DBUS)
-    option(IARM_USE_DBUS "IARM_USE_DBUS" ON)
 endif()
 
 if (BUILD_ENABLE_TELEMETRY_LOGGING)

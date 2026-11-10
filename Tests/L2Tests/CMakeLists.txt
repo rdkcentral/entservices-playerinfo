@@ -71,6 +71,19 @@ else (MOCKACCESSOR_LIBRARIES)
      message ("Require ${MOCKACCESSOR_LIBRARIES} library")
 endif (MOCKACCESSOR_LIBRARIES)
 
+# L2TestsMock.cpp (shared, entservices-testframework) unconditionally registers every
+# Ds<Component>HalMock via Ds<Component>Api::setImpl() regardless of which plugin is under
+# test, so this IO library must carry the ds-hal dependency or the shared L2Tests plugin
+# fails to load at runtime with undefined symbol: Ds*Api::setImpl (--no-as-needed keeps the
+# linker from dropping it since no symbol here is referenced directly).
+find_library(DSHAL_LIBRARIES NAMES ds-hal)
+if (DSHAL_LIBRARIES)
+    message ("Found ds-hal library - ${DSHAL_LIBRARIES}")
+    target_link_libraries(${MODULE_NAME} PRIVATE -Wl,--no-as-needed ${DSHAL_LIBRARIES} -Wl,--as-needed)
+else (DSHAL_LIBRARIES)
+    message ("Require ${DSHAL_LIBRARIES} library")
+endif (DSHAL_LIBRARIES)
+
 target_include_directories(
     ${MODULE_NAME} PRIVATE ./
     ../../helpers
