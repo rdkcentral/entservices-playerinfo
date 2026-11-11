@@ -76,7 +76,7 @@ if (GSTREAMER_FOUND)
            ${GSTREAMER_INCLUDES})
     if (USE_DEVICESETTINGS)
         # DeviceSettings queried over COM-RPC from entservices-devicesettings.
-        find_package(${NAMESPACE}Helpers REQUIRED)
+        find_package(${NAMESPACE}Helpers CONFIG REQUIRED)
 
         target_include_directories(${MODULE_NAME} PRIVATE
             ../helpers)
