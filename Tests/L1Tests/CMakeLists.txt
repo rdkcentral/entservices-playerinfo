@@ -23,6 +23,7 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(${NAMESPACE}Plugins REQUIRED)
+find_package(${NAMESPACE}Helpers CONFIG REQUIRED)
 
 set (TEST_SRC
     tests/test_UtilsFile.cpp
@@ -30,6 +31,7 @@ set (TEST_SRC
 
 set (TEST_LIB
     ${NAMESPACE}Plugins::${NAMESPACE}Plugins
+    ${NAMESPACE}::${NAMESPACE}Helpers
 )
 
 set (TEST_INC ../../helpers)
